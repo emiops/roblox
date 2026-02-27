@@ -95,7 +95,7 @@ A Roblox world with nature (trees, rocks, caves, lakes, flowers, butterflies) an
 2. Lizards should spawn and run away when you get close
 3. Walk into a lizard to catch it
 4. Press **I** to open your lizard inventory
-5. Check **leaderstats** → **LizardsCaught** for total count
+5. Check the **terrarium banner** for your lizard count (player name + lizards caught)
 
 ---
 
