@@ -313,7 +313,28 @@ local function buildTerrariumStructure(player)
 		top.Parent = terrarium
 	end
 	
-	-- No front glass: gap is entrance for players. White center is walkable.
+	-- Front outer glass walls (where banner stands): complete the terrarium enclosure. Center gap remains as entrance.
+	local frontGlassLeft = Instance.new("Part")
+	frontGlassLeft.Name = "FrontGlassLeft"
+	frontGlassLeft.Size = Vector3.new(8, U_HEIGHT + 1, 0.3)
+	frontGlassLeft.Position = pos + Vector3.new(-10, U_HEIGHT/2, U_ARM_DEPTH/2 + 0.5)
+	frontGlassLeft.Color = Color3.fromRGB(200, 230, 255)
+	frontGlassLeft.Material = Enum.Material.Glass
+	frontGlassLeft.Transparency = 0.7
+	frontGlassLeft.Anchored = true
+	frontGlassLeft.CanCollide = true
+	frontGlassLeft.Parent = terrarium
+	
+	local frontGlassRight = Instance.new("Part")
+	frontGlassRight.Name = "FrontGlassRight"
+	frontGlassRight.Size = Vector3.new(8, U_HEIGHT + 1, 0.3)
+	frontGlassRight.Position = pos + Vector3.new(10, U_HEIGHT/2, U_ARM_DEPTH/2 + 0.5)
+	frontGlassRight.Color = Color3.fromRGB(200, 230, 255)
+	frontGlassRight.Material = Enum.Material.Glass
+	frontGlassRight.Transparency = 0.7
+	frontGlassRight.Anchored = true
+	frontGlassRight.CanCollide = true
+	frontGlassRight.Parent = terrarium
 	
 	-- Inner glass walls: separate green (lizard habitat) from white (walkable). Lizards cannot pass through.
 	-- Left inner wall (between left green arm and white center)
