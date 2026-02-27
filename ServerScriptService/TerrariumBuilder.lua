@@ -28,7 +28,7 @@ local U_BACK_WIDTH = 12      -- Back section width
 local U_GAP_WIDTH = 8       -- Front center opening
 local U_HEIGHT = 8
 local TERRARIUM_BASE_POSITION = Vector3.new(0, 10, 30)
-local DISPLAY_LIZARD_SCALE = 0.4  -- Small enough to fit inside terrarium
+local DISPLAY_LIZARD_SCALE = 0.8  -- 2x bigger (was 0.4)
 local LIZARD_SPACING = 2.0
 
 -- Interior bounds: lizards live in GREEN areas only, cannot pass through glass into white walkable area
@@ -607,14 +607,16 @@ RunService.Heartbeat:Connect(function(dt)
 						local baseCF = baseCFVal.Value
 						local phase = phaseVal and phaseVal.Value or 0
 						local scale = DISPLAY_LIZARD_SCALE
-						-- Slower movement inside terrarium (vs outside lizards)
-						local sway = math.sin(t * 1.5 + phase) * 0.08
-						local wander = math.sin(t * 0.5 + phase * 0.5) * 0.06
-						local localX = baseCF.Position.X - center.X + math.sin(t * 0.25 + phase) * wander
-						local localZ = baseCF.Position.Z - center.Z + math.cos(t * 0.2 + phase) * wander
+						-- 2x faster movement + jumping
+						local sway = math.sin(t * 3 + phase) * 0.1
+						local wander = math.sin(t * 1 + phase * 0.5) * 0.12
+						local localX = baseCF.Position.X - center.X + math.sin(t * 0.5 + phase) * wander
+						local localZ = baseCF.Position.Z - center.Z + math.cos(t * 0.4 + phase) * wander
 						local clampedX, clampedZ = clampToUBounds(localX, localZ)
-						local rotY = math.sin(t * 0.3 + phase) * 0.15
-						local worldPos = center + Vector3.new(clampedX, baseCF.Position.Y - center.Y, clampedZ)
+						local rotY = math.sin(t * 0.6 + phase) * 0.2
+						-- Jump: periodic bounce (positive sine = up)
+						local jumpOffset = math.max(0, math.sin(t * 2.5 + phase * 1.3)) * 0.25
+						local worldPos = center + Vector3.new(clampedX, baseCF.Position.Y - center.Y + jumpOffset, clampedZ)
 						local bodyCF = CFrame.new(worldPos) * (baseCF - baseCF.Position) * CFrame.Angles(0, rotY, 0)
 						body.CFrame = bodyCF
 						stripe.CFrame = bodyCF * CFrame.new(0, 0.16 * scale, 0)
