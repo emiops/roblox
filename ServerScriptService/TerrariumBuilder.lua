@@ -28,15 +28,15 @@ local U_BACK_WIDTH = 12      -- Back section width
 local U_GAP_WIDTH = 8       -- Front center opening
 local U_HEIGHT = 8
 local TERRARIUM_BASE_POSITION = Vector3.new(0, 10, 30)
-local DISPLAY_LIZARD_SCALE = 0.85
+local DISPLAY_LIZARD_SCALE = 0.4  -- Small enough to fit inside terrarium
 local LIZARD_SPACING = 2.0
 
--- Interior bounds (relative to terrarium center): lizards must stay inside U
--- Left arm: X [-14,-6], Z [-6,6]  |  Right arm: X [6,14], Z [-6,6]  |  Back: X [-6,6], Z [-6,-2]
+-- Interior bounds: lizards live in GREEN areas only, cannot pass through glass into white walkable area
+-- Left arm: X [-14,-6.5], Z [-6,5]  |  Right arm: X [6.5,14], Z [-6,5]  |  Back: X [-6,6], Z [-6,-2.5]
 local U_BOUNDS = {
-	{ xMin = -14, xMax = -6, zMin = -6, zMax = 6 },   -- left arm
-	{ xMin = 6, xMax = 14, zMin = -6, zMax = 6 },    -- right arm
-	{ xMin = -6, xMax = 6, zMin = -6, zMax = -2 },   -- back
+	{ xMin = -14, xMax = -6.5, zMin = -6, zMax = 5 },   -- left green arm (lizard habitat)
+	{ xMin = 6.5, xMax = 14, zMin = -6, zMax = 5 },    -- right green arm (lizard habitat)
+	{ xMin = -6, xMax = 6, zMin = -6, zMax = -2.5 },   -- back green (lizard habitat)
 }
 
 -- Create BindableEvent for catch notifications (CatchController fires this)
@@ -208,7 +208,18 @@ local function buildTerrariumStructure(player)
 	floorBack.CanCollide = true
 	floorBack.Parent = terrarium
 	
-	-- U-shaped interior ground (grass)
+	-- Center floor (under walkable area - gap between left/right arms)
+	local floorCenter = Instance.new("Part")
+	floorCenter.Name = "FloorCenter"
+	floorCenter.Size = Vector3.new(U_GAP_WIDTH + 1, 0.5, U_ARM_DEPTH - 2)
+	floorCenter.Position = pos + Vector3.new(0, 0, 2)
+	floorCenter.Color = Color3.fromRGB(90, 85, 80)
+	floorCenter.Material = Enum.Material.Concrete
+	floorCenter.Anchored = true
+	floorCenter.CanCollide = true
+	floorCenter.Parent = terrarium
+	
+	-- U-shaped interior ground (grass) - GREEN lizard habitat
 	local groundLeft = Instance.new("Part")
 	groundLeft.Size = Vector3.new(U_ARM_WIDTH - 0.5, 0.4, U_ARM_DEPTH - 0.5)
 	groundLeft.Position = pos + Vector3.new(-10, 0.7, 0)
@@ -272,7 +283,7 @@ local function buildTerrariumStructure(player)
 	leftGlass.Position = pos + Vector3.new(-14, U_HEIGHT/2, 0)
 	leftGlass.Color = Color3.fromRGB(200, 230, 255)
 	leftGlass.Material = Enum.Material.Glass
-	leftGlass.Transparency = 0.3
+	leftGlass.Transparency = 0.7  -- More transparent to see through
 	leftGlass.Anchored = true
 	leftGlass.CanCollide = true
 	leftGlass.Parent = terrarium
@@ -284,7 +295,7 @@ local function buildTerrariumStructure(player)
 	rightGlass.Position = pos + Vector3.new(14, U_HEIGHT/2, 0)
 	rightGlass.Color = Color3.fromRGB(200, 230, 255)
 	rightGlass.Material = Enum.Material.Glass
-	rightGlass.Transparency = 0.3
+	rightGlass.Transparency = 0.7  -- More transparent to see through
 	rightGlass.Anchored = true
 	rightGlass.CanCollide = true
 	rightGlass.Parent = terrarium
@@ -296,58 +307,174 @@ local function buildTerrariumStructure(player)
 		top.Position = pos + Vector3.new(offset[1], U_HEIGHT + 0.65, offset[2])
 		top.Color = Color3.fromRGB(200, 230, 255)
 		top.Material = Enum.Material.Glass
-		top.Transparency = 0.3
+		top.Transparency = 0.7  -- More transparent to see through
 		top.Anchored = true
 		top.CanCollide = true
 		top.Parent = terrarium
 	end
 	
+	-- No front glass: gap is entrance for players. White center is walkable.
+	
+	-- Inner glass walls: separate green (lizard habitat) from white (walkable). Lizards cannot pass through.
+	-- Left inner wall (between left green arm and white center)
+	local innerGlassLeft = Instance.new("Part")
+	innerGlassLeft.Name = "InnerGlassLeft"
+	innerGlassLeft.Size = Vector3.new(0.3, U_HEIGHT + 1, 8)
+	innerGlassLeft.Position = pos + Vector3.new(-6, U_HEIGHT/2, 2)
+	innerGlassLeft.Color = Color3.fromRGB(200, 230, 255)
+	innerGlassLeft.Material = Enum.Material.Glass
+	innerGlassLeft.Transparency = 0.7
+	innerGlassLeft.Anchored = true
+	innerGlassLeft.CanCollide = true
+	innerGlassLeft.Parent = terrarium
+	
+	-- Right inner wall
+	local innerGlassRight = Instance.new("Part")
+	innerGlassRight.Name = "InnerGlassRight"
+	innerGlassRight.Size = Vector3.new(0.3, U_HEIGHT + 1, 8)
+	innerGlassRight.Position = pos + Vector3.new(6, U_HEIGHT/2, 2)
+	innerGlassRight.Color = Color3.fromRGB(200, 230, 255)
+	innerGlassRight.Material = Enum.Material.Glass
+	innerGlassRight.Transparency = 0.7
+	innerGlassRight.Anchored = true
+	innerGlassRight.CanCollide = true
+	innerGlassRight.Parent = terrarium
+	
+	-- Back inner wall (between back green and white center)
+	local innerGlassBack = Instance.new("Part")
+	innerGlassBack.Name = "InnerGlassBack"
+	innerGlassBack.Size = Vector3.new(12, U_HEIGHT + 1, 0.3)
+	innerGlassBack.Position = pos + Vector3.new(0, U_HEIGHT/2, -2)
+	innerGlassBack.Color = Color3.fromRGB(200, 230, 255)
+	innerGlassBack.Material = Enum.Material.Glass
+	innerGlassBack.Transparency = 0.7
+	innerGlassBack.Anchored = true
+	innerGlassBack.CanCollide = true
+	innerGlassBack.Parent = terrarium
+	
+	-- White walkable floor (center area where players walk)
+	local walkableFloor = Instance.new("Part")
+	walkableFloor.Name = "WalkableFloor"
+	walkableFloor.Size = Vector3.new(U_GAP_WIDTH - 0.5, 0.4, 8)
+	walkableFloor.Position = pos + Vector3.new(0, 0.7, 2)
+	walkableFloor.Color = Color3.fromRGB(240, 240, 235)
+	walkableFloor.Material = Enum.Material.Concrete
+	walkableFloor.Anchored = true
+	walkableFloor.CanCollide = true
+	walkableFloor.Parent = terrarium
+	
+	-- Rocks in green lizard habitat areas
+	for _, region in ipairs(U_BOUNDS) do
+		for _ = 1, 8 do
+			local rx = region.xMin + 0.5 + math.random() * (region.xMax - region.xMin - 1)
+			local rz = region.zMin + 0.5 + math.random() * (region.zMax - region.zMin - 1)
+			local rock = Instance.new("Part")
+			rock.Name = "Rock"
+			rock.Shape = Enum.PartType.Ball
+			rock.Size = Vector3.new(0.3 + math.random() * 0.5, 0.2 + math.random() * 0.4, 0.3 + math.random() * 0.5)
+			rock.Position = pos + Vector3.new(rx, 0.7 + rock.Size.Y/2, rz)
+			rock.Color = Color3.fromRGB(100, 95, 85)
+			rock.Material = Enum.Material.Slate
+			rock.Anchored = true
+			rock.CanCollide = true
+			rock.Parent = terrarium
+		end
+	end
+	
+	-- Small trees in green lizard habitat areas
+	for _, region in ipairs(U_BOUNDS) do
+		for _ = 1, 4 do
+			local rx = region.xMin + 1 + math.random() * (region.xMax - region.xMin - 2)
+			local rz = region.zMin + 1 + math.random() * (region.zMax - region.zMin - 2)
+			-- Trunk
+			local trunk = Instance.new("Part")
+			trunk.Name = "TreeTrunk"
+			trunk.Size = Vector3.new(0.4, 1.2, 0.4)
+			trunk.Position = pos + Vector3.new(rx, 1.3, rz)
+			trunk.Color = Color3.fromRGB(80, 55, 35)
+			trunk.Material = Enum.Material.Wood
+			trunk.Anchored = true
+			trunk.CanCollide = true
+			trunk.Parent = terrarium
+			-- Foliage (small bush/tree top)
+			local foliage = Instance.new("Part")
+			foliage.Name = "TreeFoliage"
+			foliage.Shape = Enum.PartType.Ball
+			foliage.Size = Vector3.new(1.2, 1.2, 1.2)
+			foliage.Position = pos + Vector3.new(rx, 2.2, rz)
+			foliage.Color = Color3.fromRGB(40, 100, 50)
+			foliage.Material = Enum.Material.Grass
+			foliage.Anchored = true
+			foliage.CanCollide = false
+			foliage.Parent = terrarium
+		end
+	end
+	
 	return terrarium
 end
 
--- 3D score banner: tall pole with big text (player name + lizards caught), placed high
-local BANNER_HEIGHT = 28
+-- Street-style banner: two poles, horizontal banner between them above the terrarium (player name + score)
+local BANNER_SPAN = 20
+local BANNER_HEIGHT = U_HEIGHT + 3
 local function buildScoreBanner(player, terrarium)
-	local pos = getTerrariumPosition(player) + Vector3.new(0, BANNER_HEIGHT, U_ARM_DEPTH/2 + 4)
+	local terrariumPos = getTerrariumPosition(player)
+	local pos = terrariumPos + Vector3.new(0, BANNER_HEIGHT, U_ARM_DEPTH/2 + 2)
 	local banner = Instance.new("Model")
 	banner.Name = "ScoreBanner_" .. player.Name
 	
-	local pole = Instance.new("Part")
-	pole.Name = "Pole"
-	pole.Size = Vector3.new(1.1, BANNER_HEIGHT, 1.1)
-	pole.Position = pos - Vector3.new(0, BANNER_HEIGHT/2, 0)
-	pole.Color = Color3.fromRGB(80, 80, 90)
-	pole.Material = Enum.Material.Metal
-	pole.Anchored = true
-	pole.CanCollide = true
-	pole.Parent = banner
+	-- Left pole
+	local poleLeft = Instance.new("Part")
+	poleLeft.Name = "PoleLeft"
+	poleLeft.Size = Vector3.new(0.6, BANNER_HEIGHT, 0.6)
+	poleLeft.Position = terrariumPos + Vector3.new(-BANNER_SPAN/2, BANNER_HEIGHT/2, U_ARM_DEPTH/2 + 2)
+	poleLeft.Color = Color3.fromRGB(60, 60, 65)
+	poleLeft.Material = Enum.Material.Metal
+	poleLeft.Anchored = true
+	poleLeft.CanCollide = true
+	poleLeft.Parent = banner
 	
+	-- Right pole
+	local poleRight = Instance.new("Part")
+	poleRight.Name = "PoleRight"
+	poleRight.Size = Vector3.new(0.6, BANNER_HEIGHT, 0.6)
+	poleRight.Position = terrariumPos + Vector3.new(BANNER_SPAN/2, BANNER_HEIGHT/2, U_ARM_DEPTH/2 + 2)
+	poleRight.Color = Color3.fromRGB(60, 60, 65)
+	poleRight.Material = Enum.Material.Metal
+	poleRight.Anchored = true
+	poleRight.CanCollide = true
+	poleRight.Parent = banner
+	
+	-- Horizontal banner sign (street-style, suspended between poles)
 	local sign = Instance.new("Part")
 	sign.Name = "Sign"
-	sign.Size = Vector3.new(18, 9, 0.5)
-	sign.Position = pos
-	sign.Color = Color3.fromRGB(50, 60, 75)
+	sign.Size = Vector3.new(BANNER_SPAN - 2, 2.5, 0.4)  -- Wide horizontal street banner
+	sign.CFrame = CFrame.new(pos)
+	sign.Color = Color3.fromRGB(45, 55, 70)
+	sign.Material = Enum.Material.Metal
 	sign.Anchored = true
 	sign.CanCollide = false
 	sign.Parent = banner
 	
-	local billboard = Instance.new("BillboardGui")
-	billboard.Name = "BannerGui"
-	billboard.Size = UDim2.new(18, 0, 9, 0)
-	billboard.StudsOffset = Vector3.new(0, 0, 0)
-	billboard.AlwaysOnTop = false
-	billboard.Parent = sign
+	-- SurfaceGui: player name + score on banner face
+	local surfaceGui = Instance.new("SurfaceGui")
+	surfaceGui.Name = "BannerGui"
+	surfaceGui.Face = Enum.NormalId.Front
+	surfaceGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	surfaceGui.PixelsPerStud = 40
+	surfaceGui.Parent = sign
 	
 	local label = Instance.new("TextLabel")
 	label.Name = "ScoreLabel"
 	label.Size = UDim2.new(1, 0, 1, 0)
+	label.Position = UDim2.new(0, 0, 0, 0)
 	label.BackgroundTransparency = 1
 	label.Text = player.Name .. "\n0 lizards caught"
 	label.TextColor3 = Color3.fromRGB(255, 255, 255)
-	label.TextSize = 96
+	label.TextSize = 36
 	label.Font = Enum.Font.GothamBold
 	label.TextScaled = true
-	label.Parent = billboard
+	label.Rotation = 0
+	label.Parent = surfaceGui
 	
 	banner.Parent = terrarium
 	return label
@@ -360,7 +487,7 @@ local function updateScoreBanner(player)
 	if not banner then return end
 	local sign = banner:FindFirstChild("Sign")
 	if not sign then return end
-	local gui = sign:FindFirstChild("BannerGui")
+	local gui = sign:FindFirstChild("BannerGui")  -- SurfaceGui or BillboardGui
 	if not gui then return end
 	local label = gui:FindFirstChild("ScoreLabel")
 	if not label then return end
@@ -456,12 +583,13 @@ RunService.Heartbeat:Connect(function(dt)
 						local baseCF = baseCFVal.Value
 						local phase = phaseVal and phaseVal.Value or 0
 						local scale = DISPLAY_LIZARD_SCALE
-						local sway = math.sin(t * 4 + phase) * 0.12
-						local wander = math.sin(t * 1.2 + phase * 0.5) * 0.15
-						local localX = baseCF.Position.X - center.X + math.sin(t * 0.6 + phase) * wander
-						local localZ = baseCF.Position.Z - center.Z + math.cos(t * 0.5 + phase) * wander
+						-- Slower movement inside terrarium (vs outside lizards)
+						local sway = math.sin(t * 1.5 + phase) * 0.08
+						local wander = math.sin(t * 0.5 + phase * 0.5) * 0.06
+						local localX = baseCF.Position.X - center.X + math.sin(t * 0.25 + phase) * wander
+						local localZ = baseCF.Position.Z - center.Z + math.cos(t * 0.2 + phase) * wander
 						local clampedX, clampedZ = clampToUBounds(localX, localZ)
-						local rotY = math.sin(t * 0.8 + phase) * 0.25
+						local rotY = math.sin(t * 0.3 + phase) * 0.15
 						local worldPos = center + Vector3.new(clampedX, baseCF.Position.Y - center.Y, clampedZ)
 						local bodyCF = CFrame.new(worldPos) * (baseCF - baseCF.Position) * CFrame.Angles(0, rotY, 0)
 						body.CFrame = bodyCF
