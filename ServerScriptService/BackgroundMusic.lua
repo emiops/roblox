@@ -8,7 +8,7 @@ local SoundService = game:GetService("SoundService")
 -- Funk music from Roblox library (replace with your preferred ID if needed)
 -- "Funky Funk" - upbeat funk style
 local MUSIC_ID = "rbxassetid://1846718408"
-local VOLUME = 0.25  -- Not loud, subtle background
+local VOLUME = 0.15  -- Not loud, subtle background
 local FADE_IN_TIME = 2  -- Seconds to fade in
 
 local sound = Instance.new("Sound")
