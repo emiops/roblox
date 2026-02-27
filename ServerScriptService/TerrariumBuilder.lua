@@ -466,10 +466,11 @@ local function buildScoreBanner(player, terrarium)
 	poleRight.Parent = banner
 	
 	-- Horizontal banner sign (street-style, suspended between poles)
+	-- Rotate 180° so text faces entrance (positive Z)
 	local sign = Instance.new("Part")
 	sign.Name = "Sign"
 	sign.Size = Vector3.new(BANNER_SPAN - 2, 2.5, 0.4)  -- Wide horizontal street banner
-	sign.CFrame = CFrame.new(pos)
+	sign.CFrame = CFrame.new(pos) * CFrame.Angles(0, math.pi, 0)
 	sign.Color = Color3.fromRGB(45, 55, 70)
 	sign.Material = Enum.Material.Metal
 	sign.Anchored = true
