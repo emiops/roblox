@@ -476,12 +476,13 @@ local function buildScoreBanner(player, terrarium)
 	sign.CanCollide = false
 	sign.Parent = banner
 	
-	-- SurfaceGui: player name + score on banner face
+	-- SurfaceGui: player name + score on banner face (visible on terrarium, not on screen)
 	local surfaceGui = Instance.new("SurfaceGui")
 	surfaceGui.Name = "BannerGui"
 	surfaceGui.Face = Enum.NormalId.Front
 	surfaceGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	surfaceGui.PixelsPerStud = 40
+	surfaceGui.PixelsPerStud = 50
+	surfaceGui.LightInfluence = 0  -- Always readable in any lighting
 	surfaceGui.Parent = sign
 	
 	local label = Instance.new("TextLabel")
@@ -491,9 +492,10 @@ local function buildScoreBanner(player, terrarium)
 	label.BackgroundTransparency = 1
 	label.Text = player.Name .. "\n0 lizards caught"
 	label.TextColor3 = Color3.fromRGB(255, 255, 255)
-	label.TextSize = 36
+	label.TextSize = 48
 	label.Font = Enum.Font.GothamBold
 	label.TextScaled = true
+	label.TextWrapped = true
 	label.Rotation = 0
 	label.Parent = surfaceGui
 	

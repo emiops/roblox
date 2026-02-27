@@ -21,34 +21,26 @@ catchEvent.Parent = ReplicatedStorage
 
 local LizardInventory = require(ReplicatedStorage:WaitForChild("LizardInventory"))
 
+-- Normalize lizard type: "Green Lizard_1234" -> "GreenLizard", "GreenLizard" -> "GreenLizard"
+local function normalizeLizardType(name)
+	local base = name:match("^(.+)%_%d+$") or name  -- Strip _1234 suffix
+	return base:gsub(" ", "")  -- Remove spaces: "Green Lizard" -> "GreenLizard"
+end
+
 local function catchLizard(player, lizard)
 	if not lizard or not lizard.Parent then return false end
 	
-	local lizardType = lizard.Name
+	local lizardType = normalizeLizardType(lizard.Name)
 	LizardInventory.AddLizard(player, lizardType)
 	catchEvent:FireClient(player, lizardType, LizardInventory.GetCount(player, lizardType))
 	
-	-- Notify terrarium to add lizard
+	-- Notify terrarium to add lizard (score shows on banner only, not on screen)
 	local onCaught = ReplicatedStorage:FindFirstChild("OnLizardCaught")
 	if onCaught and onCaught:IsA("BindableEvent") then
 		onCaught:Fire(player, lizardType)
 	end
 	
 	lizard:Destroy()
-	
-	local leaderstats = player:FindFirstChild("leaderstats")
-	if not leaderstats then
-		leaderstats = Instance.new("Folder")
-		leaderstats.Name = "leaderstats"
-		leaderstats.Parent = player
-	end
-	local caught = leaderstats:FindFirstChild("LizardsCaught")
-	if not caught then
-		caught = Instance.new("IntValue")
-		caught.Name = "LizardsCaught"
-		caught.Parent = leaderstats
-	end
-	caught.Value = LizardInventory.GetTotal(player)
 	return true
 end
 
