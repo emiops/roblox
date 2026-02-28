@@ -11,7 +11,7 @@ local RunService = game:GetService("RunService")
 
 local LizardInventory = require(ReplicatedStorage:WaitForChild("LizardInventory"))
 
--- Lizard type (e.g. "GreenLizard") -> color
+-- Lizard/creature type -> color
 local LIZARD_TYPE_COLORS = {
 	GreenLizard = Color3.fromRGB(34, 139, 34),
 	BrownLizard = Color3.fromRGB(139, 90, 43),
@@ -19,6 +19,7 @@ local LIZARD_TYPE_COLORS = {
 	TanLizard = Color3.fromRGB(210, 180, 140),
 	OliveLizard = Color3.fromRGB(85, 107, 47),
 	EmeraldLizard = Color3.fromRGB(60, 179, 113),
+	RolliePollie = Color3.fromRGB(90, 88, 82),
 }
 
 -- U-shaped terrarium: left arm, right arm, back. Opening in front center.
@@ -123,6 +124,51 @@ local function createDisplayLizard(lizardType, position, rotationY)
 	head.CFrame = baseCF * CFrame.new(0, 0.02 * scale, -0.6 * scale)
 	tail1.CFrame = baseCF * CFrame.new(0, 0, 0.65 * scale)
 	tail2.CFrame = baseCF * CFrame.new(0, 0, 1.0 * scale)
+	
+	return model
+end
+
+local function createDisplayRolliePollie(position, rotationY)
+	local scale = DISPLAY_LIZARD_SCALE * 0.6  -- Slightly smaller than lizards
+	local model = Instance.new("Model")
+	model.Name = "RolliePollie"
+	
+	local body = Instance.new("Part")
+	body.Name = "Body"
+	body.Shape = Enum.PartType.Ball
+	body.Size = Vector3.new(0.5 * scale, 0.35 * scale, 0.7 * scale)
+	body.Color = Color3.fromRGB(90, 88, 82)
+	body.Anchored = true
+	body.CanCollide = false
+	body.Parent = model
+	
+	for i = 1, 3 do
+		local seg = Instance.new("Part")
+		seg.Name = "Segment" .. i
+		seg.Shape = Enum.PartType.Block
+		seg.Size = Vector3.new(0.15 * scale, 0.25 * scale, 0.1 * scale)
+		seg.Color = Color3.fromRGB(70, 68, 65)
+		seg.Anchored = true
+		seg.CanCollide = false
+		seg.Parent = model
+	end
+	
+	model.PrimaryPart = body
+	local baseCF = CFrame.new(position) * CFrame.Angles(0, rotationY, 0)
+	local cfValue = Instance.new("CFrameValue")
+	cfValue.Name = "BaseCF"
+	cfValue.Value = baseCF
+	cfValue.Parent = model
+	local phaseValue = Instance.new("NumberValue")
+	phaseValue.Name = "Phase"
+	phaseValue.Value = math.random() * 100
+	phaseValue.Parent = model
+	model:SetAttribute("IsRolliePollie", true)  -- No jump in animation
+	
+	body.CFrame = baseCF
+	model:FindFirstChild("Segment1").CFrame = baseCF * CFrame.new(-0.15 * scale, 0, 0)
+	model:FindFirstChild("Segment2").CFrame = baseCF
+	model:FindFirstChild("Segment3").CFrame = baseCF * CFrame.new(0.15 * scale, 0, 0)
 	
 	return model
 end
@@ -491,7 +537,7 @@ local function buildScoreBanner(player, terrarium)
 	label.Size = UDim2.new(1, 0, 1, 0)
 	label.Position = UDim2.new(0, 0, 0, 0)
 	label.BackgroundTransparency = 1
-	label.Text = player.Name .. "\n0 lizards caught"
+	label.Text = player.Name .. "\n0 creatures caught"
 	label.TextColor3 = Color3.fromRGB(255, 255, 255)
 	label.TextSize = 48
 	label.Font = Enum.Font.GothamBold
@@ -516,7 +562,7 @@ local function updateScoreBanner(player)
 	local label = gui:FindFirstChild("ScoreLabel")
 	if not label then return end
 	local total = LizardInventory.GetTotal(player)
-	label.Text = player.Name .. "\n" .. total .. " lizard" .. (total == 1 and "" or "s") .. " caught"
+	label.Text = player.Name .. "\n" .. total .. " creature" .. (total == 1 and "" or "s") .. " caught"
 end
 
 local function refreshTerrariumLizards(terrarium, player)
@@ -535,12 +581,12 @@ local function refreshTerrariumLizards(terrarium, player)
 	
 	local index = 0
 	local all = LizardInventory.GetAll(player)
-	for lizardType, count in pairs(all) do
+	for creatureType, count in pairs(all) do
 		for _ = 1, count do
 			index = index + 1
 			local pos = positions[index] or (center + Vector3.new((index % 5 - 2) * 2, 1.02, math.floor(index / 5) * 2))
 			local rotY = math.random() * math.pi * 2
-			local display = createDisplayLizard(lizardType, pos, rotY)
+			local display = (creatureType == "RolliePollie") and createDisplayRolliePollie(pos, rotY) or createDisplayLizard(creatureType, pos, rotY)
 			display.Parent = displayFolder
 		end
 	end
@@ -597,32 +643,50 @@ RunService.Heartbeat:Connect(function(dt)
 			for _, model in pairs(displayFolder:GetChildren()) do
 				if model:IsA("Model") then
 					local body = model:FindFirstChild("Body")
-					local head = model:FindFirstChild("Head")
-					local tail1 = model:FindFirstChild("Tail1")
-					local tail2 = model:FindFirstChild("Tail2")
-					local stripe = model:FindFirstChild("Stripe")
 					local baseCFVal = model:FindFirstChild("BaseCF")
 					local phaseVal = model:FindFirstChild("Phase")
-					if body and head and tail1 and tail2 and stripe and baseCFVal then
-						local baseCF = baseCFVal.Value
-						local phase = phaseVal and phaseVal.Value or 0
-						local scale = DISPLAY_LIZARD_SCALE
-						-- 2x faster movement + jumping
-						local sway = math.sin(t * 3 + phase) * 0.1
-						local wander = math.sin(t * 1 + phase * 0.5) * 0.12
+					if body and baseCFVal then
+					local baseCF = baseCFVal.Value
+					local phase = phaseVal and phaseVal.Value or 0
+					local scale = DISPLAY_LIZARD_SCALE
+					local isRolliePollie = model:GetAttribute("IsRolliePollie")
+					
+					if isRolliePollie then
+						-- Rollie-pollie: move but NO jump
+						local wander = math.sin(t * 1 + phase * 0.5) * 0.1
 						local localX = baseCF.Position.X - center.X + math.sin(t * 0.5 + phase) * wander
 						local localZ = baseCF.Position.Z - center.Z + math.cos(t * 0.4 + phase) * wander
 						local clampedX, clampedZ = clampToUBounds(localX, localZ)
-						local rotY = math.sin(t * 0.6 + phase) * 0.2
-						-- Jump: periodic bounce (positive sine = up)
-						local jumpOffset = math.max(0, math.sin(t * 2.5 + phase * 1.3)) * 0.25
-						local worldPos = center + Vector3.new(clampedX, baseCF.Position.Y - center.Y + jumpOffset, clampedZ)
+						local rotY = math.sin(t * 0.6 + phase) * 0.15
+						local worldPos = center + Vector3.new(clampedX, baseCF.Position.Y - center.Y, clampedZ)
 						local bodyCF = CFrame.new(worldPos) * (baseCF - baseCF.Position) * CFrame.Angles(0, rotY, 0)
 						body.CFrame = bodyCF
-						stripe.CFrame = bodyCF * CFrame.new(0, 0.16 * scale, 0)
-						head.CFrame = bodyCF * CFrame.new(0, 0.02 * scale, -0.6 * scale) * CFrame.Angles(0, 0, sway * 0.5)
-						tail1.CFrame = bodyCF * CFrame.new(0, 0, 0.65 * scale) * CFrame.Angles(0, 0, sway * 1.2)
-						tail2.CFrame = bodyCF * CFrame.new(0, 0, 1.0 * scale) * CFrame.Angles(0, 0, sway * 1.8)
+						local segScale = scale * 0.6
+						model:FindFirstChild("Segment1").CFrame = bodyCF * CFrame.new(-0.15 * segScale, 0, 0)
+						model:FindFirstChild("Segment2").CFrame = bodyCF
+						model:FindFirstChild("Segment3").CFrame = bodyCF * CFrame.new(0.15 * segScale, 0, 0)
+					else
+						-- Lizard: move + jump
+						local head = model:FindFirstChild("Head")
+						local tail1 = model:FindFirstChild("Tail1")
+						local tail2 = model:FindFirstChild("Tail2")
+						local stripe = model:FindFirstChild("Stripe")
+						if body and head and tail1 and tail2 and stripe then
+							local sway = math.sin(t * 3 + phase) * 0.1
+							local wander = math.sin(t * 1 + phase * 0.5) * 0.12
+							local localX = baseCF.Position.X - center.X + math.sin(t * 0.5 + phase) * wander
+							local localZ = baseCF.Position.Z - center.Z + math.cos(t * 0.4 + phase) * wander
+							local clampedX, clampedZ = clampToUBounds(localX, localZ)
+							local rotY = math.sin(t * 0.6 + phase) * 0.2
+							local jumpOffset = math.max(0, math.sin(t * 2.5 + phase * 1.3)) * 0.25
+							local worldPos = center + Vector3.new(clampedX, baseCF.Position.Y - center.Y + jumpOffset, clampedZ)
+							local bodyCF = CFrame.new(worldPos) * (baseCF - baseCF.Position) * CFrame.Angles(0, rotY, 0)
+							body.CFrame = bodyCF
+							stripe.CFrame = bodyCF * CFrame.new(0, 0.16 * scale, 0)
+							head.CFrame = bodyCF * CFrame.new(0, 0.02 * scale, -0.6 * scale) * CFrame.Angles(0, 0, sway * 0.5)
+							tail1.CFrame = bodyCF * CFrame.new(0, 0, 0.65 * scale) * CFrame.Angles(0, 0, sway * 1.2)
+							tail2.CFrame = bodyCF * CFrame.new(0, 0, 1.0 * scale) * CFrame.Angles(0, 0, sway * 1.8)
+						end
 					end
 				end
 			end

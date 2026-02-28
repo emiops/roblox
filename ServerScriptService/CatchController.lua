@@ -55,34 +55,49 @@ catchRequest.OnServerEvent:Connect(function(player)
 	local playerRoot = character:FindFirstChild("HumanoidRootPart")
 	if not playerRoot then return end
 	
-	local lizardsFolder = Workspace:WaitForChild("Lizards", 5)
-	if not lizardsFolder then return end
-	
 	local playerPos = playerRoot.Position
 	
-	-- Find nearest lizard in range (check Body part or PrimaryPart)
-	local nearestLizard = nil
+	-- Find nearest lizard OR rollie-pollie in range
+	local nearestTarget = nil
 	local nearestDist = CATCH_RANGE
 	
-	for _, lizard in pairs(lizardsFolder:GetChildren()) do
-		if not lizard:IsA("Model") then
-			-- Skip non-models (folders, etc.)
-		else
-		-- Get position from PrimaryPart, Body, or any Part
-		local rootPart = lizard.PrimaryPart or lizard:FindFirstChild("Body") or lizard:FindFirstChildWhichIsA("BasePart")
-		if rootPart then
-			local dist = (rootPart.Position - playerPos).Magnitude
-			if dist < nearestDist then
-				nearestDist = dist
-				nearestLizard = lizard
+	-- Check lizards
+	local lizardsFolder = Workspace:FindFirstChild("Lizards", 5)
+	if lizardsFolder then
+		for _, lizard in pairs(lizardsFolder:GetChildren()) do
+			if lizard:IsA("Model") then
+				local rootPart = lizard.PrimaryPart or lizard:FindFirstChild("Body") or lizard:FindFirstChildWhichIsA("BasePart")
+				if rootPart then
+					local dist = (rootPart.Position - playerPos).Magnitude
+					if dist < nearestDist then
+						nearestDist = dist
+						nearestTarget = lizard
+					end
+				end
 			end
-		end
 		end
 	end
 	
-	if nearestLizard then
+	-- Check rollie-pollies (prioritize if closer)
+	local rollieFolder = Workspace:FindFirstChild("RolliePollies", 5)
+	if rollieFolder then
+		for _, rollie in pairs(rollieFolder:GetChildren()) do
+			if rollie:IsA("Model") then
+				local rootPart = rollie.PrimaryPart or rollie:FindFirstChild("Body") or rollie:FindFirstChildWhichIsA("BasePart")
+				if rootPart then
+					local dist = (rootPart.Position - playerPos).Magnitude
+					if dist < nearestDist then
+						nearestDist = dist
+						nearestTarget = rollie
+					end
+				end
+			end
+		end
+	end
+	
+	if nearestTarget then
 		local ok, err = pcall(function()
-			catchLizard(player, nearestLizard)
+			catchLizard(player, nearestTarget)
 		end)
 		if not ok then
 			warn("[CatchController] Error catching:", err)

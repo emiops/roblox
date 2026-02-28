@@ -1,6 +1,6 @@
 --[[
-	CatchPrompt - Catch lizards with button (mobile) or E key (desktop)
-	Shows tappable "CATCH" button when near a lizard - works on phone, tablet, PC
+	CatchPrompt - Catch lizards/rollie-pollies (E) or hit rocks (F)
+	Shows CATCH or HIT button when near - works on phone, tablet, PC
 	Place in StarterGui as a LocalScript
 ]]
 
@@ -10,18 +10,19 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local CATCH_RANGE = 25  -- Match server - catch from further away (lizards escape at 14 studs)
+local CATCH_RANGE = 25
+local HIT_RANGE = 8
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "CatchPromptGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
--- Tappable/clickable CATCH button (works on mobile touch + desktop click)
+-- CATCH button (lizards + rollie-pollies)
 local catchButton = Instance.new("TextButton")
 catchButton.Name = "CatchButton"
 catchButton.Size = UDim2.new(0, 160, 0, 50)
-catchButton.Position = UDim2.new(0.5, -80, 0.7, 0)  -- Bottom center, easy thumb reach on mobile
+catchButton.Position = UDim2.new(0.5, -80, 0.7, 0)
 catchButton.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
 catchButton.BorderSizePixel = 0
 catchButton.Text = "CATCH"
@@ -31,25 +32,65 @@ catchButton.Font = Enum.Font.GothamBold
 catchButton.Visible = false
 catchButton.Parent = screenGui
 
+-- HIT button (rocks)
+local hitButton = Instance.new("TextButton")
+hitButton.Name = "HitButton"
+hitButton.Size = UDim2.new(0, 160, 0, 50)
+hitButton.Position = UDim2.new(0.5, -80, 0.6, 0)
+hitButton.BackgroundColor3 = Color3.fromRGB(140, 80, 40)
+hitButton.BorderSizePixel = 0
+hitButton.Text = "HIT ROCK"
+hitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+hitButton.TextSize = 20
+hitButton.Font = Enum.Font.GothamBold
+hitButton.Visible = false
+hitButton.Parent = screenGui
+
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 12)
 corner.Parent = catchButton
+corner:Clone().Parent = hitButton
 
--- Check if player is near any lizard (defined before button uses it)
-local function isNearLizard()
+local function isNearCatchable()
 	local character = player.Character
-	if not character then return false end
-	
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if not root then return false end
+	if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
+	local root = character.HumanoidRootPart
 	
 	local lizardsFolder = workspace:FindFirstChild("Lizards")
-	if not lizardsFolder then return false end
+	if lizardsFolder then
+		for _, m in pairs(lizardsFolder:GetChildren()) do
+			if m:IsA("Model") and m.PrimaryPart then
+				if (m.PrimaryPart.Position - root.Position).Magnitude < CATCH_RANGE then
+					return true
+				end
+			end
+		end
+	end
 	
-	for _, lizard in pairs(lizardsFolder:GetChildren()) do
-		if lizard:IsA("Model") and lizard.PrimaryPart then
-			local dist = (lizard.PrimaryPart.Position - root.Position).Magnitude
-			if dist < CATCH_RANGE then
+	local rollieFolder = workspace:FindFirstChild("RolliePollies")
+	if rollieFolder then
+		for _, m in pairs(rollieFolder:GetChildren()) do
+			if m:IsA("Model") and m.PrimaryPart then
+				if (m.PrimaryPart.Position - root.Position).Magnitude < CATCH_RANGE then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+local function isNearRock()
+	local character = player.Character
+	if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
+	local root = character.HumanoidRootPart
+	
+	local rocksFolder = workspace:FindFirstChild("Rocks")
+	if not rocksFolder then return false end
+	
+	for _, rock in pairs(rocksFolder:GetChildren()) do
+		if rock:IsA("BasePart") then
+			if (rock.Position - root.Position).Magnitude < HIT_RANGE then
 				return true
 			end
 		end
@@ -57,21 +98,27 @@ local function isNearLizard()
 	return false
 end
 
--- Button tap/click - works on mobile and desktop
 catchButton.MouseButton1Click:Connect(function()
-	if isNearLizard() then
+	if isNearCatchable() then
 		ReplicatedStorage:WaitForChild("CatchLizardRequest"):FireServer()
 	end
 end)
 
--- Show/hide button when near lizard
-RunService.RenderStepped:Connect(function()
-	catchButton.Visible = isNearLizard()
+hitButton.MouseButton1Click:Connect(function()
+	if isNearRock() then
+		ReplicatedStorage:WaitForChild("HitRockRequest"):FireServer()
+	end
 end)
 
--- E key for desktop/keyboard users
+RunService.RenderStepped:Connect(function()
+	catchButton.Visible = isNearCatchable()
+	hitButton.Visible = isNearRock()
+end)
+
 UserInputService.InputBegan:Connect(function(input)
-	if input.KeyCode == Enum.KeyCode.E and isNearLizard() then
+	if input.KeyCode == Enum.KeyCode.E and isNearCatchable() then
 		ReplicatedStorage:WaitForChild("CatchLizardRequest"):FireServer()
+	elseif input.KeyCode == Enum.KeyCode.F and isNearRock() then
+		ReplicatedStorage:WaitForChild("HitRockRequest"):FireServer()
 	end
 end)
