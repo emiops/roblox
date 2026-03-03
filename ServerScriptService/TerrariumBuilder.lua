@@ -28,7 +28,7 @@ local U_ARM_DEPTH = 12       -- Arm depth (front to back)
 local U_BACK_WIDTH = 12      -- Back section width
 local U_GAP_WIDTH = 8       -- Front center opening
 local U_HEIGHT = 8
-local TERRARIUM_BASE_POSITION = Vector3.new(91.665, -1.656, -98.376)
+local TERRARIUM_BASE_POSITION = Vector3.new(0, 10, 30)  -- Near spawn, visible
 local DISPLAY_LIZARD_SCALE = 0.8  -- 2x bigger (was 0.4)
 local LIZARD_SPACING = 2.0
 
@@ -621,22 +621,29 @@ onLizardCaught.Event:Connect(function(player, lizardType)
 	updateScoreBanner(player)
 end)
 
--- Create terrarium for each player on join, and sync existing inventory
-Players.PlayerAdded:Connect(function(player)
-	player.CharacterAdded:Wait()
-	task.wait(1)  -- Let inventory load
-	local terrarium = getOrCreateTerrarium(player)
-	refreshTerrariumLizards(terrarium, player)
-	updateScoreBanner(player)
-end)
-
--- Existing players
-for _, player in pairs(Players:GetPlayers()) do
-	task.spawn(function()
-		task.wait(1)
+-- Create terrarium for each player on join (don't wait for character - spawn immediately)
+local function setupTerrariumForPlayer(player)
+	local ok, err = pcall(function()
 		local terrarium = getOrCreateTerrarium(player)
 		refreshTerrariumLizards(terrarium, player)
 		updateScoreBanner(player)
+	end)
+	if not ok then
+		warn("[TerrariumBuilder] Error for", player.Name, ":", err)
+	end
+end
+
+Players.PlayerAdded:Connect(function(player)
+	task.spawn(function()
+		task.wait(0.5)  -- Brief delay for inventory
+		setupTerrariumForPlayer(player)
+	end)
+end)
+
+-- Existing players - create terrarium immediately
+for _, player in pairs(Players:GetPlayers()) do
+	task.spawn(function()
+		setupTerrariumForPlayer(player)
 	end)
 end
 
