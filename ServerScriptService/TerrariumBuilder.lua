@@ -654,73 +654,73 @@ RunService.Heartbeat:Connect(function(dt)
 	for _, terrarium in pairs(terrariumsFolder:GetChildren()) do
 		local centerVal = terrarium:FindFirstChild("Center")
 		if centerVal then
-		local center = centerVal.Value
-		local displayFolder = terrarium:FindFirstChild("DisplayLizards")
-		if displayFolder then
-			for _, model in pairs(displayFolder:GetChildren()) do
-				if model:IsA("Model") then
-					local body = model:FindFirstChild("Body") or model:FindFirstChild("Segment3")
-					local baseCFVal = model:FindFirstChild("BaseCF")
-					local phaseVal = model:FindFirstChild("Phase")
-					if body and baseCFVal then
-					local baseCF = baseCFVal.Value
-					local phase = phaseVal and phaseVal.Value or 0
-					local scale = DISPLAY_LIZARD_SCALE
-					local isRolliePollie = model:GetAttribute("IsRolliePollie")
-					
-					if isRolliePollie then
-						-- Rollie-pollie (caterpillar): move, NO jump, sometimes roll into ball
-						local segL = 0.35 * scale
-						local wander = math.sin(t * 1 + phase * 0.5) * 0.1
-						local localX = baseCF.Position.X - center.X + math.sin(t * 0.5 + phase) * wander
-						local localZ = baseCF.Position.Z - center.Z + math.cos(t * 0.4 + phase) * wander
-						local clampedX, clampedZ = clampToUBounds(localX, localZ)
-						local rotY = math.sin(t * 0.6 + phase) * 0.15
-						local worldPos = center + Vector3.new(clampedX, baseCF.Position.Y - center.Y, clampedZ)
-						local bodyCF = CFrame.new(worldPos) * (baseCF - baseCF.Position) * CFrame.Angles(0, rotY, 0)
-						
-						-- Sometimes roll into ball (like real life) - use phase for consistent per-creature timing
-						local rollCycle = math.sin(t * 0.4 + phase * 2) 
-						local isRolled = rollCycle > 0.7
-						
-						local ball = model:FindFirstChild("Ball")
-						for i = 1, 5 do
-							local seg = model:FindFirstChild("Segment" .. i)
-							if seg then
-								seg.Transparency = isRolled and 1 or 0
-								if not isRolled then
-									local offset = (i - 3) * segL * 0.85
-									seg.CFrame = bodyCF * CFrame.new(0, 0, offset)
+			local center = centerVal.Value
+			local displayFolder = terrarium:FindFirstChild("DisplayLizards")
+			if displayFolder then
+				for _, model in pairs(displayFolder:GetChildren()) do
+					if model:IsA("Model") then
+						local body = model:FindFirstChild("Body") or model:FindFirstChild("Segment3")
+						local baseCFVal = model:FindFirstChild("BaseCF")
+						local phaseVal = model:FindFirstChild("Phase")
+						if body and baseCFVal then
+							local baseCF = baseCFVal.Value
+							local phase = phaseVal and phaseVal.Value or 0
+							local scale = DISPLAY_LIZARD_SCALE
+							local isRolliePollie = model:GetAttribute("IsRolliePollie")
+							
+							if isRolliePollie then
+								-- Rollie-pollie (caterpillar): move, NO jump, sometimes roll into ball
+								local segL = 0.35 * scale
+								local wander = math.sin(t * 1 + phase * 0.5) * 0.1
+								local localX = baseCF.Position.X - center.X + math.sin(t * 0.5 + phase) * wander
+								local localZ = baseCF.Position.Z - center.Z + math.cos(t * 0.4 + phase) * wander
+								local clampedX, clampedZ = clampToUBounds(localX, localZ)
+								local rotY = math.sin(t * 0.6 + phase) * 0.15
+								local worldPos = center + Vector3.new(clampedX, baseCF.Position.Y - center.Y, clampedZ)
+								local bodyCF = CFrame.new(worldPos) * (baseCF - baseCF.Position) * CFrame.Angles(0, rotY, 0)
+								
+								-- Sometimes roll into ball (like real life) - use phase for consistent per-creature timing
+								local rollCycle = math.sin(t * 0.4 + phase * 2) 
+								local isRolled = rollCycle > 0.7
+								
+								local ball = model:FindFirstChild("Ball")
+								for i = 1, 5 do
+									local seg = model:FindFirstChild("Segment" .. i)
+									if seg then
+										seg.Transparency = isRolled and 1 or 0
+										if not isRolled then
+											local offset = (i - 3) * segL * 0.85
+											seg.CFrame = bodyCF * CFrame.new(0, 0, offset)
+										end
+									end
+								end
+								if ball then
+									ball.Transparency = isRolled and 0 or 1
+									ball.CFrame = bodyCF
+								end
+							else
+								-- Lizard: move + jump
+								local head = model:FindFirstChild("Head")
+								local tail1 = model:FindFirstChild("Tail1")
+								local tail2 = model:FindFirstChild("Tail2")
+								local stripe = model:FindFirstChild("Stripe")
+								if body and head and tail1 and tail2 and stripe then
+									local sway = math.sin(t * 3 + phase) * 0.1
+									local wander = math.sin(t * 1 + phase * 0.5) * 0.12
+									local localX = baseCF.Position.X - center.X + math.sin(t * 0.5 + phase) * wander
+									local localZ = baseCF.Position.Z - center.Z + math.cos(t * 0.4 + phase) * wander
+									local clampedX, clampedZ = clampToUBounds(localX, localZ)
+									local rotY = math.sin(t * 0.6 + phase) * 0.2
+									local jumpOffset = math.max(0, math.sin(t * 2.5 + phase * 1.3)) * 0.25
+									local worldPos = center + Vector3.new(clampedX, baseCF.Position.Y - center.Y + jumpOffset, clampedZ)
+									local bodyCF = CFrame.new(worldPos) * (baseCF - baseCF.Position) * CFrame.Angles(0, rotY, 0)
+									body.CFrame = bodyCF
+									stripe.CFrame = bodyCF * CFrame.new(0, 0.16 * scale, 0)
+									head.CFrame = bodyCF * CFrame.new(0, 0.02 * scale, -0.6 * scale) * CFrame.Angles(0, 0, sway * 0.5)
+									tail1.CFrame = bodyCF * CFrame.new(0, 0, 0.65 * scale) * CFrame.Angles(0, 0, sway * 1.2)
+									tail2.CFrame = bodyCF * CFrame.new(0, 0, 1.0 * scale) * CFrame.Angles(0, 0, sway * 1.8)
 								end
 							end
-						end
-						if ball then
-							ball.Transparency = isRolled and 0 or 1
-							ball.CFrame = bodyCF
-						end
-					else
-						-- Lizard: move + jump
-						local head = model:FindFirstChild("Head")
-						local tail1 = model:FindFirstChild("Tail1")
-						local tail2 = model:FindFirstChild("Tail2")
-						local stripe = model:FindFirstChild("Stripe")
-						if body and head and tail1 and tail2 and stripe then
-							local sway = math.sin(t * 3 + phase) * 0.1
-							local wander = math.sin(t * 1 + phase * 0.5) * 0.12
-							local localX = baseCF.Position.X - center.X + math.sin(t * 0.5 + phase) * wander
-							local localZ = baseCF.Position.Z - center.Z + math.cos(t * 0.4 + phase) * wander
-							local clampedX, clampedZ = clampToUBounds(localX, localZ)
-							local rotY = math.sin(t * 0.6 + phase) * 0.2
-							local jumpOffset = math.max(0, math.sin(t * 2.5 + phase * 1.3)) * 0.25
-							local worldPos = center + Vector3.new(clampedX, baseCF.Position.Y - center.Y + jumpOffset, clampedZ)
-							local bodyCF = CFrame.new(worldPos) * (baseCF - baseCF.Position) * CFrame.Angles(0, rotY, 0)
-							body.CFrame = bodyCF
-							stripe.CFrame = bodyCF * CFrame.new(0, 0.16 * scale, 0)
-							head.CFrame = bodyCF * CFrame.new(0, 0.02 * scale, -0.6 * scale) * CFrame.Angles(0, 0, sway * 0.5)
-							tail1.CFrame = bodyCF * CFrame.new(0, 0, 0.65 * scale) * CFrame.Angles(0, 0, sway * 1.2)
-							tail2.CFrame = bodyCF * CFrame.new(0, 0, 1.0 * scale) * CFrame.Angles(0, 0, sway * 1.8)
-						end
-					end
 				end
 			end
 		end
