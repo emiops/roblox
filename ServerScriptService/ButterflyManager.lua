@@ -172,7 +172,7 @@ local function createButterfly()
 
 		-- Clamp Y: min 2 studs above base, max 2x player height
 		local minY = math.max(2, groundPos.Y)
-		local maxY = getMaxHeight()
+		local maxY = math.max(minY, getMaxHeight())
 		pos = Vector3.new(pos.X, math.clamp(pos.Y, minY, maxY), pos.Z)
 
 		-- Slight vertical drift
