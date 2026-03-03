@@ -337,13 +337,35 @@ local function createBicycle()
 	model.PrimaryPart = seat
 	model:SetAttribute("IsBicycle", true)
 	
-	-- Script: sync steering to VehicleSeat SteerFloat
+	-- AlignOrientation: keep bike upright (Y-up) while allowing steering rotation
+	local uprightAtt = Instance.new("Attachment")
+	uprightAtt.Name = "UprightAtt"
+	uprightAtt.Parent = seat
+	
+	local alignOrientation = Instance.new("AlignOrientation")
+	alignOrientation.Name = "UprightAlign"
+	alignOrientation.Mode = Enum.AlignOrientationMode.OneAttachment
+	alignOrientation.Attachment0 = uprightAtt
+	alignOrientation.CFrame = CFrame.new()
+	alignOrientation.MaxTorque = 50000
+	alignOrientation.Responsiveness = 25
+	alignOrientation.Parent = seat
+	
+	-- Script: sync steering + update upright target each frame
 	local steerConnection
 	steerConnection = RunService.Heartbeat:Connect(function()
 		if not model.Parent then steerConnection:Disconnect() return end
+		-- Steering
 		local steer = seat.SteerFloat
-		local targetAngle = math.rad(-steer * STEER_MAX_ANGLE)
-		hinge.TargetAngle = targetAngle
+		hinge.TargetAngle = math.rad(-steer * STEER_MAX_ANGLE)
+		-- Upright target: keep Y-up, preserve current yaw (facing direction)
+		local look = seat.CFrame.LookVector
+		local lookXZ = Vector3.new(look.X, 0, look.Z)
+		if lookXZ.Magnitude > 0.05 then
+			lookXZ = lookXZ.Unit
+			local right = lookXZ:Cross(Vector3.new(0, 1, 0)).Unit
+			alignOrientation.CFrame = CFrame.fromMatrix(Vector3.zero, right, Vector3.new(0, 1, 0))
+		end
 	end)
 	
 	return model
@@ -371,10 +393,8 @@ local function spawnBicycle()
 	local seat = bike:FindFirstChild("Seat")
 	if seat and seat:IsA("VehicleSeat") then
 		seat.Anchored = true
-		seat.OccupantChanged:Connect(function()
-			if seat.Occupant then
-				seat.Anchored = false
-			end
+		seat:GetPropertyChangedSignal("Occupant"):Connect(function()
+			seat.Anchored = (seat.Occupant == nil)
 		end)
 	end
 	
