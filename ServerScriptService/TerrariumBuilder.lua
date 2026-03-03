@@ -649,7 +649,7 @@ end
 
 -- Animate display lizards (tail sway, head bob, slight wander) - clamped to U bounds
 local t = 0
-RunService.Heartbeat:Connect(function(dt)
+local function onHeartbeat(dt)
 	t = t + dt
 	for _, terrarium in pairs(terrariumsFolder:GetChildren()) do
 		local centerVal = terrarium:FindFirstChild("Center")
@@ -726,6 +726,7 @@ RunService.Heartbeat:Connect(function(dt)
 		end
 		end
 	end
-end)
+end
+RunService.Heartbeat:Connect(onHeartbeat)
 
 print("[TerrariumBuilder] Terrarium ready! Caught lizards will appear inside.")
