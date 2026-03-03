@@ -129,31 +129,36 @@ local function createDisplayLizard(lizardType, position, rotationY)
 end
 
 local function createDisplayRolliePollie(position, rotationY)
-	local scale = DISPLAY_LIZARD_SCALE * 0.6  -- Slightly smaller than lizards
+	-- Same size as lizards (caterpillar shape)
+	local scale = DISPLAY_LIZARD_SCALE
+	local segW, segH, segL = 0.22 * scale, 0.2 * scale, 0.35 * scale
+	
 	local model = Instance.new("Model")
 	model.Name = "RolliePollie"
 	
-	local body = Instance.new("Part")
-	body.Name = "Body"
-	body.Shape = Enum.PartType.Ball
-	body.Size = Vector3.new(0.5 * scale, 0.35 * scale, 0.7 * scale)
-	body.Color = Color3.fromRGB(90, 88, 82)
-	body.Anchored = true
-	body.CanCollide = false
-	body.Parent = model
-	
-	for i = 1, 3 do
+	for i = 1, 5 do
 		local seg = Instance.new("Part")
 		seg.Name = "Segment" .. i
 		seg.Shape = Enum.PartType.Block
-		seg.Size = Vector3.new(0.15 * scale, 0.25 * scale, 0.1 * scale)
-		seg.Color = Color3.fromRGB(70, 68, 65)
+		seg.Size = Vector3.new(segW, segH, segL)
+		seg.Color = (i % 2 == 1) and Color3.fromRGB(90, 88, 82) or Color3.fromRGB(75, 73, 68)
 		seg.Anchored = true
 		seg.CanCollide = false
 		seg.Parent = model
 	end
 	
-	model.PrimaryPart = body
+	-- Ball for rolled-up state (like real life)
+	local ball = Instance.new("Part")
+	ball.Name = "Ball"
+	ball.Shape = Enum.PartType.Ball
+	ball.Size = Vector3.new(0.4 * scale, 0.4 * scale, 0.4 * scale)
+	ball.Color = Color3.fromRGB(85, 83, 78)
+	ball.Anchored = true
+	ball.CanCollide = false
+	ball.Transparency = 1
+	ball.Parent = model
+	
+	model.PrimaryPart = model:FindFirstChild("Segment3")
 	local baseCF = CFrame.new(position) * CFrame.Angles(0, rotationY, 0)
 	local cfValue = Instance.new("CFrameValue")
 	cfValue.Name = "BaseCF"
@@ -163,12 +168,17 @@ local function createDisplayRolliePollie(position, rotationY)
 	phaseValue.Name = "Phase"
 	phaseValue.Value = math.random() * 100
 	phaseValue.Parent = model
-	model:SetAttribute("IsRolliePollie", true)  -- No jump in animation
+	model:SetAttribute("IsRolliePollie", true)
 	
-	body.CFrame = baseCF
-	model:FindFirstChild("Segment1").CFrame = baseCF * CFrame.new(-0.15 * scale, 0, 0)
-	model:FindFirstChild("Segment2").CFrame = baseCF
-	model:FindFirstChild("Segment3").CFrame = baseCF * CFrame.new(0.15 * scale, 0, 0)
+	for i = 1, 5 do
+		local seg = model:FindFirstChild("Segment" .. i)
+		if seg then
+			local offset = (i - 3) * segL * 0.85
+			seg.CFrame = baseCF * CFrame.new(0, 0, offset)
+		end
+	end
+	local ball = model:FindFirstChild("Ball")
+	if ball then ball.CFrame = baseCF end
 	
 	return model
 end
@@ -642,7 +652,7 @@ RunService.Heartbeat:Connect(function(dt)
 		if displayFolder then
 			for _, model in pairs(displayFolder:GetChildren()) do
 				if model:IsA("Model") then
-					local body = model:FindFirstChild("Body")
+					local body = model:FindFirstChild("Body") or model:FindFirstChild("Segment3")
 					local baseCFVal = model:FindFirstChild("BaseCF")
 					local phaseVal = model:FindFirstChild("Phase")
 					if body and baseCFVal then
@@ -652,7 +662,8 @@ RunService.Heartbeat:Connect(function(dt)
 					local isRolliePollie = model:GetAttribute("IsRolliePollie")
 					
 					if isRolliePollie then
-						-- Rollie-pollie: move but NO jump
+						-- Rollie-pollie (caterpillar): move, NO jump, sometimes roll into ball
+						local segL = 0.35 * scale
 						local wander = math.sin(t * 1 + phase * 0.5) * 0.1
 						local localX = baseCF.Position.X - center.X + math.sin(t * 0.5 + phase) * wander
 						local localZ = baseCF.Position.Z - center.Z + math.cos(t * 0.4 + phase) * wander
@@ -660,11 +671,26 @@ RunService.Heartbeat:Connect(function(dt)
 						local rotY = math.sin(t * 0.6 + phase) * 0.15
 						local worldPos = center + Vector3.new(clampedX, baseCF.Position.Y - center.Y, clampedZ)
 						local bodyCF = CFrame.new(worldPos) * (baseCF - baseCF.Position) * CFrame.Angles(0, rotY, 0)
-						body.CFrame = bodyCF
-						local segScale = scale * 0.6
-						model:FindFirstChild("Segment1").CFrame = bodyCF * CFrame.new(-0.15 * segScale, 0, 0)
-						model:FindFirstChild("Segment2").CFrame = bodyCF
-						model:FindFirstChild("Segment3").CFrame = bodyCF * CFrame.new(0.15 * segScale, 0, 0)
+						
+						-- Sometimes roll into ball (like real life) - use phase for consistent per-creature timing
+						local rollCycle = math.sin(t * 0.4 + phase * 2) 
+						local isRolled = rollCycle > 0.7
+						
+						local ball = model:FindFirstChild("Ball")
+						for i = 1, 5 do
+							local seg = model:FindFirstChild("Segment" .. i)
+							if seg then
+								seg.Transparency = isRolled and 1 or 0
+								if not isRolled then
+									local offset = (i - 3) * segL * 0.85
+									seg.CFrame = bodyCF * CFrame.new(0, 0, offset)
+								end
+							end
+						end
+						if ball then
+							ball.Transparency = isRolled and 0 or 1
+							ball.CFrame = bodyCF
+						end
 					else
 						-- Lizard: move + jump
 						local head = model:FindFirstChild("Head")

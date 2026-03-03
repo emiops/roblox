@@ -66,71 +66,125 @@ local function getGroundPosition()
 	return Vector3.new(x, 5, z)
 end
 
-local function createRolliePollie(position)
+-- Same size as lizards (~0.8 scale, body ~0.9 studs long)
+local ROLLIE_SCALE = 0.8
+
+local function createRolliePollie(spawnPos)
 	local model = Instance.new("Model")
 	model.Name = "RolliePollie"
 	
-	-- Pill bug: oval body (gray, segmented look)
-	local scale = 0.6
-	local body = Instance.new("Part")
-	body.Name = "Body"
-	body.Shape = Enum.PartType.Ball
-	body.Size = Vector3.new(0.5 * scale, 0.35 * scale, 0.7 * scale)
-	body.Color = Color3.fromRGB(90, 88, 82)
-	body.Material = Enum.Material.SmoothPlastic
-	body.Anchored = true
-	body.CanCollide = true
-	body.Parent = model
+	-- Caterpillar shape: long body with 5 segments (like real pill bug elongated)
+	local scale = ROLLIE_SCALE
+	local segW = 0.22 * scale
+	local segH = 0.2 * scale
+	local segL = 0.35 * scale
 	
-	-- Segments (darker bands)
-	for i = 1, 3 do
+	local segments = {}
+	for i = 1, 5 do
 		local seg = Instance.new("Part")
 		seg.Name = "Segment" .. i
 		seg.Shape = Enum.PartType.Block
-		seg.Size = Vector3.new(0.15 * scale, 0.25 * scale, 0.1 * scale)
-		seg.Color = Color3.fromRGB(70, 68, 65)
+		seg.Size = Vector3.new(segW, segH, segL)
+		seg.Color = (i % 2 == 1) and Color3.fromRGB(90, 88, 82) or Color3.fromRGB(75, 73, 68)
+		seg.Material = Enum.Material.SmoothPlastic
 		seg.Anchored = true
-		seg.CanCollide = false
+		seg.CanCollide = true
 		seg.Parent = model
+		segments[i] = seg
 	end
 	
-	model.PrimaryPart = body
-	model:SetPrimaryPartCFrame(CFrame.new(position + Vector3.new(0, 0.2, 0)))
+	-- Rolled-up ball (hidden when elongated)
+	local ball = Instance.new("Part")
+	ball.Name = "Ball"
+	ball.Shape = Enum.PartType.Ball
+	ball.Size = Vector3.new(0.4 * scale, 0.4 * scale, 0.4 * scale)
+	ball.Color = Color3.fromRGB(85, 83, 78)
+	ball.Material = Enum.Material.SmoothPlastic
+	ball.Anchored = true
+	ball.CanCollide = true
+	ball.Transparency = 1  -- Hidden until rolled
+	ball.Parent = model
+	
+	model.PrimaryPart = segments[3]
+	-- Spawn 1 stud above ground so visible (was spawning underground)
+	local pos = spawnPos + Vector3.new(0, 1, 0)
+	model:SetPrimaryPartCFrame(CFrame.new(pos))
+	
+	-- Position caterpillar segments in a line
+	local baseCF = CFrame.new(pos)
+	for i, seg in ipairs(segments) do
+		local offset = (i - 3) * segL * 0.85
+		seg.CFrame = baseCF * CFrame.new(0, 0, offset)
+	end
+	ball.CFrame = baseCF
+	
 	model.Parent = rolliePolliesFolder
 	
-	-- Position segments
-	local bodyPos = body.Position
-	model:FindFirstChild("Segment1").CFrame = CFrame.new(bodyPos + Vector3.new(-0.15, 0, 0))
-	model:FindFirstChild("Segment2").CFrame = CFrame.new(bodyPos)
-	model:FindFirstChild("Segment3").CFrame = CFrame.new(bodyPos + Vector3.new(0.15, 0, 0))
-	
-	-- Escape behavior (runs from player, no jump)
-	local t = math.random() * 100
+	-- Escape + roll behavior: run away, but curl into ball when player very close
+	local isRolled = false
+	local rollUntil = 0
 	RunService.Heartbeat:Connect(function(dt)
-		if not body.Parent then return end
-		t = t + dt
+		if not model.Parent then return end
 		
 		local nearestDist = math.huge
-		local runDir = nil
+		local nearestPlayer = nil
 		for _, p in pairs(game.Players:GetPlayers()) do
 			local char = p.Character
 			if char and char:FindFirstChild("HumanoidRootPart") then
-				local d = (char.HumanoidRootPart.Position - body.Position).Magnitude
-				if d < nearestDist and d < ROLLIE_ESCAPE_DIST then
+				local d = (char.HumanoidRootPart.Position - pos).Magnitude
+				if d < nearestDist then
 					nearestDist = d
-					runDir = (body.Position - char.HumanoidRootPart.Position).Unit
+					nearestPlayer = p
 				end
 			end
 		end
 		
-		if runDir then
-			local flatDir = Vector3.new(runDir.X, 0, runDir.Z).Unit
-			local newPos = body.Position + flatDir * ROLLIE_ESCAPE_SPEED * dt
-			model:SetPrimaryPartCFrame(CFrame.new(newPos))
-			-- Update segments
-			model:FindFirstChild("Segment1").CFrame = CFrame.new(newPos + Vector3.new(-0.15, 0, 0))
-			model:FindFirstChild("Segment2").CFrame = CFrame.new(newPos)
-			model:FindFirstChild("Segment3").CFrame = CFrame.new(newPos + Vector3.new(0.15, 0, 0))
+		if nearestPlayer and nearestDist < ROLLIE_ESCAPE_DIST then
+			local runDir = (pos - nearestPlayer.Character.HumanoidRootPart.Position).Unit
+			
+			-- Roll into ball when player very close (like real life)
+			if nearestDist < 4 then
+				if not isRolled then
+					isRolled = true
+					rollUntil = tick() + 1.5
+					for _, seg in ipairs(segments) do
+						seg.Transparency = 1
+					end
+					ball.Transparency = 0
+				end
+				-- Stay still when rolled (protective ball)
+			else
+				-- Unroll and run
+				if isRolled and tick() > rollUntil then
+					isRolled = false
+					for _, seg in ipairs(segments) do
+						seg.Transparency = 0
+					end
+					ball.Transparency = 1
+				end
+				if not isRolled then
+					local flatDir = Vector3.new(runDir.X, 0, runDir.Z).Unit
+					pos = pos + flatDir * ROLLIE_ESCAPE_SPEED * dt
+					-- Face direction of movement (caterpillar head = -Z)
+					local lookCF = CFrame.lookAt(pos, pos + flatDir)
+					local baseCF = lookCF
+					for i, seg in ipairs(segments) do
+						local offset = (i - 3) * segL * 0.85
+						seg.CFrame = baseCF * CFrame.new(0, 0, offset)
+					end
+					ball.CFrame = baseCF
+					model.PrimaryPart = segments[3]
+				end
+			end
+		else
+			-- Player left - unroll if was rolled
+			if isRolled and tick() > rollUntil then
+				isRolled = false
+				for _, seg in ipairs(segments) do
+					seg.Transparency = 0
+				end
+				ball.Transparency = 1
+			end
 		end
 	end)
 	
@@ -156,9 +210,6 @@ local function createRock()
 	rock.Position = pos + Vector3.new(0, rock.Size.Y / 2, 0)
 	rock.Parent = rocksFolder
 	
-	-- Store rollie-pollie spawn position (under rock)
-	rock:SetAttribute("RollieSpawnPos", pos)
-	
 	return rock
 end
 
@@ -182,9 +233,10 @@ hitRockRequest.OnServerEvent:Connect(function(player)
 	end
 	
 	if nearestRock then
-		local spawnPos = nearestRock:GetAttribute("RollieSpawnPos") or nearestRock.Position
+		-- Spawn at rock base (ground level) so rollie-pollie is visible
+		local rockBottom = nearestRock.Position - Vector3.new(0, nearestRock.Size.Y / 2, 0)
 		nearestRock:Destroy()
-		createRolliePollie(spawnPos)
+		createRolliePollie(rockBottom)
 	end
 end)
 
