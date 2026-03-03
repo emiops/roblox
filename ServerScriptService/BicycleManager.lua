@@ -12,6 +12,8 @@ local BICYCLE_SPAWN_POSITION = Vector3.new(8, 0, 8)
 local PINK_COLOR = Color3.fromRGB(255, 105, 180)
 local PINK_DARK = Color3.fromRGB(220, 80, 150)
 local STEER_MAX_ANGLE = 35
+-- If bike spawns on its side, try: 0=none, 90 or -90 = rotate around X (stand it up)
+local SPAWN_ROTATION_X = 0
 
 local function getGroundPosition()
 	local origin = BICYCLE_SPAWN_POSITION + Vector3.new(0, 50, 0)
@@ -353,7 +355,8 @@ local function spawnBicycle()
 	local groundPos = getGroundPosition()
 	
 	-- Ensure upright: wheels down (Y-), seat up (Y+). Bike built with +Y up.
-	local spawnCF = CFrame.new(groundPos)
+	-- SPAWN_ROTATION_X: if bike spawns on its side, try 90 or -90
+	local spawnCF = CFrame.new(groundPos) * CFrame.Angles(math.rad(SPAWN_ROTATION_X), 0, 0)
 	bike:PivotTo(spawnCF)
 	
 	local bikesFolder = Workspace:FindFirstChild("Bicycles")
@@ -364,7 +367,18 @@ local function spawnBicycle()
 	end
 	bike.Parent = bikesFolder
 	
-	-- Zero velocity so bike doesn't tumble on spawn
+	-- Anchor on spawn so bike stays upright until player sits
+	local seat = bike:FindFirstChild("Seat")
+	if seat and seat:IsA("VehicleSeat") then
+		seat.Anchored = true
+		seat.OccupantChanged:Connect(function()
+			if seat.Occupant then
+				seat.Anchored = false
+			end
+		end)
+	end
+	
+	-- Zero velocity when unanchored so bike doesn't tumble
 	task.defer(function()
 		task.wait(0.05)
 		if bike.Parent and bike.PrimaryPart then
