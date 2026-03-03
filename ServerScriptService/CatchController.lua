@@ -8,7 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 
-local CATCH_RANGE = 10  -- Must get close to catch (lizards escape at 14 studs)
+local CATCH_RANGE = 25  -- Generous range - lizards escape at 14 studs
 
 -- Create RemoteEvents FIRST so client can connect even if require fails
 local catchRequest = Instance.new("RemoteEvent")

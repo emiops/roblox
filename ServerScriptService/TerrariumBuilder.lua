@@ -672,11 +672,9 @@ RunService.Heartbeat:Connect(function(dt)
 						local worldPos = center + Vector3.new(clampedX, baseCF.Position.Y - center.Y, clampedZ)
 						local bodyCF = CFrame.new(worldPos) * (baseCF - baseCF.Position) * CFrame.Angles(0, rotY, 0)
 						
-						-- Run a bit, then roll into ball (like real life) - cycle every ~3 sec
-						local cyclePeriod = 3
-						local runRatio = 0.65  -- 65% running, 35% rolled
-						local cyclePos = ((t + phase) % cyclePeriod) / cyclePeriod
-						local isRolled = cyclePos > runRatio
+						-- Sometimes roll into ball (like real life) - use phase for consistent per-creature timing
+						local rollCycle = math.sin(t * 0.4 + phase * 2) 
+						local isRolled = rollCycle > 0.7
 						
 						local ball = model:FindFirstChild("Ball")
 						for i = 1, 5 do

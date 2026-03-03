@@ -10,7 +10,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local CATCH_RANGE = 10
+local CATCH_RANGE = 25
 local HIT_RANGE = 8
 
 local screenGui = Instance.new("ScreenGui")
