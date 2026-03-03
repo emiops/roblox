@@ -303,20 +303,21 @@ local function createBicycle()
 	weld(forkCrown, wheelFront)
 	
 	-- Hinge for steering (front assembly rotates around head tube)
-	-- HingeConstraint uses Attachment0/Attachment1, not Part0/Part1
+	-- HingeConstraint uses Attachment0/Attachment1; attachment X-axis = hinge rotation axis
 	local att0 = Instance.new("Attachment")
 	att0.Name = "SteerAtt0"
+	att0.Orientation = Vector3.new(0, 0, 90)  -- X-axis up for vertical steering
 	att0.Parent = headTube
 	
 	local att1 = Instance.new("Attachment")
 	att1.Name = "SteerAtt1"
+	att1.Orientation = Vector3.new(0, 0, 90)
 	att1.Parent = forkCrown
 	
 	local hinge = Instance.new("HingeConstraint")
 	hinge.Name = "SteerHinge"
 	hinge.Attachment0 = att0
 	hinge.Attachment1 = att1
-	hinge.Axis = Vector3.new(0, 1, 0)
 	hinge.ActuatorType = Enum.ActuatorType.Servo
 	hinge.ServoMaxTorque = 500
 	hinge.Parent = headTube
