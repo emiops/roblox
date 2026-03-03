@@ -28,7 +28,7 @@ local U_ARM_DEPTH = 12       -- Arm depth (front to back)
 local U_BACK_WIDTH = 12      -- Back section width
 local U_GAP_WIDTH = 8       -- Front center opening
 local U_HEIGHT = 8
-local TERRARIUM_BASE_POSITION = Vector3.new(0, 10, 30)
+local TERRARIUM_BASE_POSITION = Vector3.new(91.665, -1.656, -98.376)
 local DISPLAY_LIZARD_SCALE = 0.8  -- 2x bigger (was 0.4)
 local LIZARD_SPACING = 2.0
 
