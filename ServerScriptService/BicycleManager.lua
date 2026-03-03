@@ -18,9 +18,10 @@ local function getGroundPosition()
 	local rayParams = RaycastParams.new()
 	local result = Workspace:Raycast(origin, Vector3.new(0, -100, 0), rayParams)
 	if result then
-		return result.Position + Vector3.new(0, 0.5, 0)
+		-- Wheel bottom ~1.1 studs below pivot; place pivot so wheels sit on ground
+		return result.Position + Vector3.new(0, 1.2, 0)
 	end
-	return BICYCLE_SPAWN_POSITION + Vector3.new(0, 2, 0)
+	return BICYCLE_SPAWN_POSITION + Vector3.new(0, 3, 0)
 end
 
 local function weld(a, b)
@@ -319,7 +320,10 @@ local function createBicycle()
 	hinge.Attachment0 = att0
 	hinge.Attachment1 = att1
 	hinge.ActuatorType = Enum.ActuatorType.Servo
-	hinge.ServoMaxTorque = 500
+	hinge.ServoMaxTorque = 2000
+	hinge.LimitsEnabled = true
+	hinge.LowerAngle = math.rad(-35)
+	hinge.UpperAngle = math.rad(35)
 	hinge.Parent = headTube
 	
 	-- Rabbit in basket
@@ -347,7 +351,10 @@ end
 local function spawnBicycle()
 	local bike = createBicycle()
 	local groundPos = getGroundPosition()
-	bike:PivotTo(CFrame.new(groundPos))
+	
+	-- Ensure upright: wheels down (Y-), seat up (Y+). Bike built with +Y up.
+	local spawnCF = CFrame.new(groundPos)
+	bike:PivotTo(spawnCF)
 	
 	local bikesFolder = Workspace:FindFirstChild("Bicycles")
 	if not bikesFolder then
@@ -356,6 +363,18 @@ local function spawnBicycle()
 		bikesFolder.Parent = Workspace
 	end
 	bike.Parent = bikesFolder
+	
+	-- Zero velocity so bike doesn't tumble on spawn
+	task.defer(function()
+		task.wait(0.05)
+		if bike.Parent and bike.PrimaryPart then
+			local assem = bike.PrimaryPart:GetRootPart()
+			if assem then
+				assem.AssemblyLinearVelocity = Vector3.zero
+				assem.AssemblyAngularVelocity = Vector3.zero
+			end
+		end
+	end)
 	
 	return bike
 end
