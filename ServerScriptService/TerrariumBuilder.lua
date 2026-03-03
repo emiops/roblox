@@ -721,9 +721,10 @@ local function onHeartbeat(dt)
 									tail2.CFrame = bodyCF * CFrame.new(0, 0, 1.0 * scale) * CFrame.Angles(0, 0, sway * 1.8)
 								end
 							end
+						end
+					end
 				end
 			end
-		end
 		end
 	end
 end
