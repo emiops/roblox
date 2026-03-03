@@ -52,17 +52,32 @@ if not hitRockRequest then
 	hitRockRequest.Parent = ReplicatedStorage
 end
 
+local terrariumsFolder = Workspace:FindFirstChild("Terrariums")
+
 local function getGroundPosition()
+	local maxAttempts = 15
+	for _ = 1, maxAttempts do
+		local x = math.random(-SPAWN_RADIUS, SPAWN_RADIUS)
+		local z = math.random(-SPAWN_RADIUS, SPAWN_RADIUS)
+		local origin = Vector3.new(x, 300, z)
+		local rayParams = RaycastParams.new()
+		rayParams.FilterDescendantsInstances = {rocksFolder, rolliePolliesFolder}
+		rayParams.FilterType = Enum.RaycastFilterType.Exclude
+		local result = Workspace:Raycast(origin, Vector3.new(0, -600, 0), rayParams)
+		if result then
+			local terrariums = terrariumsFolder or Workspace:FindFirstChild("Terrariums")
+			-- Reject: hit terrarium (walls, floors, glass - don't spawn on or inside)
+			if terrariums and result.Instance:IsDescendantOf(terrariums) then
+				-- try next position
+			elseif result.Normal.Y >= 0.6 then
+				-- Accept: hit floor (surface pointing up), not a wall
+				return result.Position
+			end
+		end
+	end
+	-- Fallback after max attempts
 	local x = math.random(-SPAWN_RADIUS, SPAWN_RADIUS)
 	local z = math.random(-SPAWN_RADIUS, SPAWN_RADIUS)
-	local origin = Vector3.new(x, 300, z)
-	local rayParams = RaycastParams.new()
-	rayParams.FilterDescendantsInstances = {rocksFolder, rolliePolliesFolder}
-	rayParams.FilterType = Enum.RaycastFilterType.Exclude
-	local result = Workspace:Raycast(origin, Vector3.new(0, -600, 0), rayParams)
-	if result then
-		return result.Position
-	end
 	return Vector3.new(x, 5, z)
 end
 
@@ -195,6 +210,21 @@ local function createRolliePollie(spawnPos)
 	return model
 end
 
+local function isPositionNearTerrarium(pos, radius)
+	local terrariums = terrariumsFolder or Workspace:FindFirstChild("Terrariums")
+	if not terrariums then return false end
+	local overlapParams = OverlapParams.new()
+	overlapParams.FilterDescendantsInstances = {rocksFolder, rolliePolliesFolder}
+	overlapParams.FilterType = Enum.RaycastFilterType.Exclude
+	local parts = Workspace:GetPartBoundsInRadius(pos, radius, overlapParams)
+	for _, part in ipairs(parts) do
+		if part:IsDescendantOf(terrariums) then
+			return true
+		end
+	end
+	return false
+end
+
 local function createRock()
 	local shapeIdx = math.random(1, #ROCK_SHAPES)
 	local colorIdx = math.random(1, #ROCK_COLORS)
@@ -211,7 +241,13 @@ local function createRock()
 	rock.CanCollide = true
 	
 	local pos = getGroundPosition()
-	rock.Position = pos + Vector3.new(0, rock.Size.Y / 2, 0)
+	local rockCenter = pos + Vector3.new(0, rock.Size.Y / 2, 0)
+	-- Don't spawn if rock would overlap terrarium walls
+	if isPositionNearTerrarium(rockCenter, math.max(rock.Size.X, rock.Size.Z) / 2 + 1) then
+		rock:Destroy()
+		return nil
+	end
+	rock.Position = rockCenter
 	rock.Parent = rocksFolder
 	
 	return rock
