@@ -81,8 +81,8 @@ local function getGroundPosition()
 	return Vector3.new(x, 5, z)
 end
 
--- Same size as lizards (~0.8 scale, body ~0.9 studs long)
-local ROLLIE_SCALE = 0.8
+-- 2x lizard size (was 0.8)
+local ROLLIE_SCALE = 1.6
 
 local function createRolliePollie(spawnPos)
 	local model = Instance.new("Model")
@@ -100,7 +100,8 @@ local function createRolliePollie(spawnPos)
 		seg.Name = "Segment" .. i
 		seg.Shape = Enum.PartType.Block
 		seg.Size = Vector3.new(segW, segH, segL)
-		seg.Color = (i % 2 == 1) and Color3.fromRGB(90, 88, 82) or Color3.fromRGB(75, 73, 68)
+		-- Zebra-style: alternating light grey and dark grey stripes
+		seg.Color = (i % 2 == 1) and Color3.fromRGB(220, 220, 218) or Color3.fromRGB(85, 85, 82)
 		seg.Material = Enum.Material.SmoothPlastic
 		seg.Anchored = true
 		seg.CanCollide = true
@@ -113,7 +114,7 @@ local function createRolliePollie(spawnPos)
 	ball.Name = "Ball"
 	ball.Shape = Enum.PartType.Ball
 	ball.Size = Vector3.new(0.4 * scale, 0.4 * scale, 0.4 * scale)
-	ball.Color = Color3.fromRGB(85, 83, 78)
+	ball.Color = Color3.fromRGB(150, 150, 148)  -- Medium grey for rolled ball (zebra stripes blend)
 	ball.Material = Enum.Material.SmoothPlastic
 	ball.Anchored = true
 	ball.CanCollide = true

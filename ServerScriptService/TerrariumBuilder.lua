@@ -19,7 +19,7 @@ local LIZARD_TYPE_COLORS = {
 	TanLizard = Color3.fromRGB(210, 180, 140),
 	OliveLizard = Color3.fromRGB(85, 107, 47),
 	EmeraldLizard = Color3.fromRGB(60, 179, 113),
-	RolliePollie = Color3.fromRGB(90, 88, 82),
+	RolliePollie = Color3.fromRGB(150, 150, 148),
 }
 
 -- U-shaped terrarium: left arm, right arm, back. Opening in front center.
@@ -129,8 +129,8 @@ local function createDisplayLizard(lizardType, position, rotationY)
 end
 
 local function createDisplayRolliePollie(position, rotationY)
-	-- Same size as lizards (caterpillar shape)
-	local scale = DISPLAY_LIZARD_SCALE
+	-- 2x lizard size, zebra-style light grey stripes
+	local scale = DISPLAY_LIZARD_SCALE * 2
 	local segW, segH, segL = 0.22 * scale, 0.2 * scale, 0.35 * scale
 	
 	local model = Instance.new("Model")
@@ -141,7 +141,7 @@ local function createDisplayRolliePollie(position, rotationY)
 		seg.Name = "Segment" .. i
 		seg.Shape = Enum.PartType.Block
 		seg.Size = Vector3.new(segW, segH, segL)
-		seg.Color = (i % 2 == 1) and Color3.fromRGB(90, 88, 82) or Color3.fromRGB(75, 73, 68)
+		seg.Color = (i % 2 == 1) and Color3.fromRGB(220, 220, 218) or Color3.fromRGB(85, 85, 82)
 		seg.Anchored = true
 		seg.CanCollide = false
 		seg.Parent = model
@@ -152,7 +152,7 @@ local function createDisplayRolliePollie(position, rotationY)
 	ball.Name = "Ball"
 	ball.Shape = Enum.PartType.Ball
 	ball.Size = Vector3.new(0.4 * scale, 0.4 * scale, 0.4 * scale)
-	ball.Color = Color3.fromRGB(85, 83, 78)
+	ball.Color = Color3.fromRGB(150, 150, 148)
 	ball.Anchored = true
 	ball.CanCollide = false
 	ball.Transparency = 1
