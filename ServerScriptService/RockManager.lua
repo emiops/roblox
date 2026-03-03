@@ -120,9 +120,13 @@ local function createRolliePollie(spawnPos)
 	
 	model.Parent = rolliePolliesFolder
 	
-	-- Escape + roll behavior: run away, but curl into ball when player very close
+	-- Escape + roll behavior: run a bit, then roll into ball (like real life), repeat
 	local isRolled = false
-	local rollUntil = 0
+	local stateStart = tick()
+	local RUN_DURATION = 1.2   -- Run for X seconds
+	local ROLL_DURATION = 0.8  -- Roll (curled) for Y seconds
+	local phaseOffset = math.random() * 2  -- Stagger each rollie-pollie
+	
 	RunService.Heartbeat:Connect(function(dt)
 		if not model.Parent then return end
 		
@@ -141,44 +145,42 @@ local function createRolliePollie(spawnPos)
 		
 		if nearestPlayer and nearestDist < ROLLIE_ESCAPE_DIST then
 			local runDir = (pos - nearestPlayer.Character.HumanoidRootPart.Position).Unit
+			local flatDir = Vector3.new(runDir.X, 0, runDir.Z).Unit
 			
-			-- Roll into ball when player very close (like real life)
-			if nearestDist < 4 then
-				if not isRolled then
-					isRolled = true
-					rollUntil = tick() + 1.5
-					for _, seg in ipairs(segments) do
-						seg.Transparency = 1
-					end
-					ball.Transparency = 0
-				end
-				-- Stay still when rolled (protective ball)
-			else
-				-- Unroll and run
-				if isRolled and tick() > rollUntil then
+			-- Cycle: run -> roll -> run -> roll (like real pill bugs)
+			local cycleTime = (tick() - stateStart + phaseOffset) % (RUN_DURATION + ROLL_DURATION)
+			if cycleTime < RUN_DURATION then
+				-- Running phase
+				if isRolled then
 					isRolled = false
 					for _, seg in ipairs(segments) do
 						seg.Transparency = 0
 					end
 					ball.Transparency = 1
 				end
-				if not isRolled then
-					local flatDir = Vector3.new(runDir.X, 0, runDir.Z).Unit
-					pos = pos + flatDir * ROLLIE_ESCAPE_SPEED * dt
-					-- Face direction of movement (caterpillar head = -Z)
-					local lookCF = CFrame.lookAt(pos, pos + flatDir)
-					local baseCF = lookCF
-					for i, seg in ipairs(segments) do
-						local offset = (i - 3) * segL * 0.85
-						seg.CFrame = baseCF * CFrame.new(0, 0, offset)
-					end
-					ball.CFrame = baseCF
-					model.PrimaryPart = segments[3]
+				pos = pos + flatDir * ROLLIE_ESCAPE_SPEED * dt
+				local lookCF = CFrame.lookAt(pos, pos + flatDir)
+				for i, seg in ipairs(segments) do
+					local offset = (i - 3) * segL * 0.85
+					seg.CFrame = lookCF * CFrame.new(0, 0, offset)
 				end
+				ball.CFrame = CFrame.new(pos)
+			else
+				-- Rolling phase (curled into ball)
+				if not isRolled then
+					isRolled = true
+					for _, seg in ipairs(segments) do
+						seg.Transparency = 1
+					end
+					ball.Transparency = 0
+				end
+				ball.CFrame = CFrame.new(pos)
+				-- Still roll away slowly when curled (like a ball rolling)
+				pos = pos + flatDir * (ROLLIE_ESCAPE_SPEED * 0.4) * dt
 			end
 		else
-			-- Player left - unroll if was rolled
-			if isRolled and tick() > rollUntil then
+			-- Player left - unroll
+			if isRolled then
 				isRolled = false
 				for _, seg in ipairs(segments) do
 					seg.Transparency = 0
