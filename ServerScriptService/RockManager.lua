@@ -17,6 +17,9 @@ local SPAWN_RADIUS = 80
 local HIT_RANGE = 8
 local ROLLIE_ESCAPE_DIST = 10
 local ROLLIE_ESCAPE_SPEED = 12
+local ROLLIE_WANDER_SPEED = 3
+local WALL_CHECK_DISTANCE = 4
+local WALL_CHECK_HEIGHT = 0.3
 
 -- 5 rock shapes with different proportions
 local ROCK_SHAPES = {
@@ -53,6 +56,33 @@ if not hitRockRequest then
 end
 
 local terrariumsFolder = Workspace:FindFirstChild("Terrariums")
+
+local function deflectFromWall(pos, moveDir)
+	if not moveDir or moveDir.Magnitude < 0.1 then return moveDir end
+	local flatDir = Vector3.new(moveDir.X, 0, moveDir.Z).Unit
+	local origin = pos + Vector3.new(0, WALL_CHECK_HEIGHT, 0)
+	local direction = flatDir * WALL_CHECK_DISTANCE
+	local rayParams = RaycastParams.new()
+	local exclude = {rocksFolder, rolliePolliesFolder}
+	local terrariums = terrariumsFolder or Workspace:FindFirstChild("Terrariums")
+	if terrariums then table.insert(exclude, terrariums) end
+	rayParams.FilterDescendantsInstances = exclude
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	local result = Workspace:Raycast(origin, direction, rayParams)
+	if result then
+		local n = result.Normal
+		local nFlat = Vector3.new(n.X, 0, n.Z)
+		if nFlat.Magnitude > 0.01 then
+			nFlat = nFlat.Unit
+			local reflected = flatDir - 2 * flatDir:Dot(nFlat) * nFlat
+			if reflected.Magnitude > 0.1 then
+				return Vector3.new(reflected.X, moveDir.Y, reflected.Z).Unit
+			end
+		end
+		return Vector3.new(-flatDir.Z, moveDir.Y, flatDir.X).Unit
+	end
+	return moveDir
+end
 
 local function getGroundPosition()
 	local maxAttempts = 15
@@ -136,17 +166,37 @@ local function createRolliePollie(spawnPos)
 	
 	model.Parent = rolliePolliesFolder
 	
-	-- Escape + roll: first run (escape in random-ish direction), then roll into ball, repeat
+	-- States: "wander" | "roll" | "underground" | "escape"
 	local isRolled = false
+	local state = "wander"
 	local stateStart = tick()
-	local RUN_DURATION = 1.5   -- Run/escape first
-	local ROLL_DURATION = 1.0  -- Then roll into ball
-	local phaseOffset = math.random() * 2
-	local randomDir = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5).Unit  -- Random escape direction
+	local stateDuration = 1 + math.random() * 0.5  -- For roll/underground
+	local randomDir = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5).Unit
+	local dirChangeTime = tick() + 3 + math.random() * 4
+	local nextRollTime = tick() + 6 + math.random() * 6
+	local nextUndergroundTime = tick() + 18 + math.random() * 15
+	local groundY = pos.Y
+	
+	-- Get ground Y at current X,Z (for underground and clamping)
+	local function getGroundYAtPos(x, z)
+		local origin = Vector3.new(x, pos.Y + 20, z)
+		local rayParams = RaycastParams.new()
+		local exclude = {rocksFolder, rolliePolliesFolder}
+		local terrariums = terrariumsFolder or Workspace:FindFirstChild("Terrariums")
+		if terrariums then table.insert(exclude, terrariums) end
+		rayParams.FilterDescendantsInstances = exclude
+		rayParams.FilterType = Enum.RaycastFilterType.Exclude
+		local result = Workspace:Raycast(origin, Vector3.new(0, -50, 0), rayParams)
+		if result then
+			return result.Position.Y
+		end
+		return pos.Y
+	end
 	
 	RunService.Heartbeat:Connect(function(dt)
 		if not model.Parent then return end
 		
+		local t = tick()
 		local nearestDist = math.huge
 		local nearestPlayer = nil
 		for _, p in pairs(game.Players:GetPlayers()) do
@@ -160,50 +210,145 @@ local function createRolliePollie(spawnPos)
 			end
 		end
 		
+		-- Escape when player near
 		if nearestPlayer and nearestDist < ROLLIE_ESCAPE_DIST then
+			state = "escape"
+			stateStart = t
 			local awayDir = (pos - nearestPlayer.Character.HumanoidRootPart.Position).Unit
-			-- Escape direction: mostly away from player + random component (panic)
 			local escapeDir = (Vector3.new(awayDir.X, 0, awayDir.Z) + randomDir * 0.5).Unit
 			local flatDir = Vector3.new(escapeDir.X, 0, escapeDir.Z).Unit
+			flatDir = deflectFromWall(pos, flatDir)
+			flatDir = Vector3.new(flatDir.X, 0, flatDir.Z).Unit
 			
-			-- Cycle: run (escape) -> roll -> run -> roll
-			local cycleTime = (tick() - stateStart + phaseOffset) % (RUN_DURATION + ROLL_DURATION)
+			local RUN_DURATION, ROLL_DURATION = 1.5, 1.0
+			local phaseOffset = math.random() * 2
+			local cycleTime = (t - stateStart + phaseOffset) % (RUN_DURATION + ROLL_DURATION)
 			if cycleTime < RUN_DURATION then
-				-- Running phase - escape in direction
 				if isRolled then
 					isRolled = false
-					for _, seg in ipairs(segments) do
-						seg.Transparency = 0
-					end
+					for _, seg in ipairs(segments) do seg.Transparency = 0 end
 					ball.Transparency = 1
 					randomDir = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5).Unit
 				end
 				pos = pos + flatDir * ROLLIE_ESCAPE_SPEED * dt
 				local lookCF = CFrame.lookAt(pos, pos + flatDir)
 				for i, seg in ipairs(segments) do
-					local offset = (i - 3) * segL * 0.85
-					seg.CFrame = lookCF * CFrame.new(0, 0, offset)
+					seg.CFrame = lookCF * CFrame.new(0, 0, (i - 3) * segL * 0.85)
 				end
 				ball.CFrame = CFrame.new(pos)
 			else
-				-- Rolling phase - curl into ball
 				if not isRolled then
 					isRolled = true
-					for _, seg in ipairs(segments) do
-						seg.Transparency = 1
-					end
+					for _, seg in ipairs(segments) do seg.Transparency = 1 end
 					ball.Transparency = 0
 				end
 				ball.CFrame = CFrame.new(pos)
 				pos = pos + flatDir * (ROLLIE_ESCAPE_SPEED * 0.5) * dt
 			end
 		else
-			if isRolled then
-				isRolled = false
-				for _, seg in ipairs(segments) do
-					seg.Transparency = 0
+			-- Idle: wander, roll, or underground
+			if state == "escape" then
+				state = "wander"
+				stateStart = t
+				dirChangeTime = t + 3 + math.random() * 4
+				if isRolled then
+					isRolled = false
+					for _, seg in ipairs(segments) do seg.Transparency = 0 end
+					ball.Transparency = 1
 				end
+			end
+			
+			local stateElapsed = t - stateStart
+			
+			if state == "wander" then
+				-- Check for roll (every ~6-12s)
+				if t >= nextRollTime then
+					state = "roll"
+					stateStart = t
+					stateDuration = 1 + math.random() * 0.5
+					nextRollTime = t + 6 + math.random() * 6
+				else
+					if t > dirChangeTime then
+						dirChangeTime = t + 2 + math.random() * 5
+						randomDir = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5).Unit
+					end
+					local flatDir = deflectFromWall(pos, randomDir)
+					flatDir = Vector3.new(flatDir.X, 0, flatDir.Z).Unit
+					if flatDir.Magnitude > 0.1 then
+						pos = pos + flatDir * ROLLIE_WANDER_SPEED * dt
+						if isRolled then
+							isRolled = false
+							for _, seg in ipairs(segments) do seg.Transparency = 0 end
+							ball.Transparency = 1
+						end
+						local lookCF = CFrame.lookAt(pos, pos + flatDir)
+						for i, seg in ipairs(segments) do
+							seg.CFrame = lookCF * CFrame.new(0, 0, (i - 3) * segL * 0.85)
+						end
+						ball.CFrame = CFrame.new(pos)
+					end
+				end
+			elseif state == "roll" then
+				-- Roll for 1-1.5s (duration fixed when entering)
+				if not isRolled then
+					isRolled = true
+					for _, seg in ipairs(segments) do seg.Transparency = 1 end
+					ball.Transparency = 0
+				end
+				ball.CFrame = CFrame.new(pos)
+				if stateElapsed > stateDuration then
+					state = "wander"
+					stateStart = t
+					isRolled = false
+					for _, seg in ipairs(segments) do seg.Transparency = 0 end
+					ball.Transparency = 1
+					randomDir = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5).Unit
+				end
+			elseif state == "underground" then
+				-- Stay underground 2-3s
+				if stateElapsed > stateDuration then
+					state = "wander"
+					stateStart = t
+					pos = Vector3.new(pos.X, groundY, pos.Z)
+					for _, seg in ipairs(segments) do seg.Transparency = 0 end
+					ball.Transparency = 1
+					isRolled = false
+					randomDir = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5).Unit
+					nextUndergroundTime = t + 18 + math.random() * 15
+				end
+			end
+			
+			-- Go underground periodically (every ~18-33s)
+			if state == "wander" and t >= nextUndergroundTime then
+				state = "underground"
+				stateStart = t
+				stateDuration = 2 + math.random() * 1
+				groundY = getGroundYAtPos(pos.X, pos.Z)
+				for _, seg in ipairs(segments) do seg.Transparency = 1 end
 				ball.Transparency = 1
+				pos = Vector3.new(pos.X, groundY - 1.5, pos.Z)
+			end
+		end
+		
+		-- Clamp to bounds (don't go through walls / out of area)
+		pos = Vector3.new(
+			math.clamp(pos.X, -SPAWN_RADIUS, SPAWN_RADIUS),
+			pos.Y,
+			math.clamp(pos.Z, -SPAWN_RADIUS, SPAWN_RADIUS)
+		)
+		
+		-- Update visuals (escape block does its own updates; this handles wander/roll)
+		if state ~= "escape" and state ~= "underground" then
+			if isRolled then
+				ball.CFrame = CFrame.new(pos)
+			else
+				local lookDir = Vector3.new(randomDir.X, 0, randomDir.Z)
+				if lookDir.Magnitude < 0.1 then lookDir = Vector3.new(1, 0, 0) end
+				local lookCF = CFrame.lookAt(pos, pos + lookDir.Unit)
+				for i, seg in ipairs(segments) do
+					seg.CFrame = lookCF * CFrame.new(0, 0, (i - 3) * segL * 0.85)
+				end
+				ball.CFrame = CFrame.new(pos)
 			end
 		end
 	end)
