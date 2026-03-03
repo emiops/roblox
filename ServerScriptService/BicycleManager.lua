@@ -344,7 +344,8 @@ local function createBicycle()
 	
 	local alignOrientation = Instance.new("AlignOrientation")
 	alignOrientation.Name = "UprightAlign"
-	alignOrientation.Mode = Enum.AlignOrientationMode.OneAttachment
+	-- OneAttachment = 0 (align to CFrame target)
+	alignOrientation.Mode = 0
 	alignOrientation.Attachment0 = uprightAtt
 	alignOrientation.CFrame = CFrame.new()
 	alignOrientation.MaxTorque = 50000
