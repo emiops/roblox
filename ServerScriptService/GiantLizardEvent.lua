@@ -13,6 +13,8 @@ local RESPAWN_MIN = 60
 local RESPAWN_MAX = 180
 local MAP_RADIUS = 120
 local GROUND_OFFSET = 1.5 * SCALE
+local WALL_CHECK_DIST = 8 * SCALE
+local WALL_CHECK_HEIGHT = 2 * SCALE
 
 local GIANT_COLOR = Color3.fromRGB(80, 45, 20)
 local GIANT_DARK = Color3.fromRGB(55, 30, 12)
@@ -33,6 +35,29 @@ local function snapToGroundY(x, z)
 		return result.Position.Y + GROUND_OFFSET
 	end
 	return GROUND_OFFSET
+end
+
+local function deflectFromWall(pos, moveDir)
+	if not moveDir or moveDir.Magnitude < 0.1 then return moveDir end
+	local flatDir = Vector3.new(moveDir.X, 0, moveDir.Z).Unit
+	local origin = pos + Vector3.new(0, WALL_CHECK_HEIGHT, 0)
+	local rayParams = RaycastParams.new()
+	rayParams.FilterDescendantsInstances = {giantFolder}
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	local result = Workspace:Raycast(origin, flatDir * WALL_CHECK_DIST, rayParams)
+	if result then
+		local n = result.Normal
+		local nFlat = Vector3.new(n.X, 0, n.Z)
+		if nFlat.Magnitude > 0.01 then
+			nFlat = nFlat.Unit
+			local reflected = flatDir - 2 * flatDir:Dot(nFlat) * nFlat
+			if reflected.Magnitude > 0.1 then
+				return reflected.Unit
+			end
+		end
+		return Vector3.new(-flatDir.Z, 0, flatDir.X).Unit
+	end
+	return moveDir
 end
 
 local function buildGiantLizard()
@@ -278,25 +303,45 @@ local function positionParts(model, bodyCF, t, isRunning)
 	end
 end
 
+local function getRandomPlayer()
+	local players = game.Players:GetPlayers()
+	if #players == 0 then return nil end
+	return players[math.random(1, #players)]
+end
+
 local function runGiantLizard()
+	local player = getRandomPlayer()
+	if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+		return false
+	end
+
+	local playerPos = player.Character.HumanoidRootPart.Position
+	local spawnDist = 25 + math.random() * 15
+	local spawnAngle = math.random() * math.pi * 2
+	local startX = playerPos.X + math.cos(spawnAngle) * spawnDist
+	local startZ = playerPos.Z + math.sin(spawnAngle) * spawnDist
+
+	local awayDir = Vector3.new(startX - playerPos.X, 0, startZ - playerPos.Z).Unit
+	local speed = (MAP_RADIUS * 2) / RUN_DURATION
+	local dir = awayDir
+
 	local model = buildGiantLizard()
 	model.Parent = giantFolder
 
-	local angle = math.random() * math.pi * 2
-	local startX = math.cos(angle) * MAP_RADIUS
-	local startZ = math.sin(angle) * MAP_RADIUS
-	local endX = -startX
-	local endZ = -startZ
-
-	local startY = snapToGroundY(startX, startZ)
-
-	local dir = Vector3.new(endX - startX, 0, endZ - startZ).Unit
-	local totalDist = Vector3.new(endX - startX, 0, endZ - startZ).Magnitude
-	local speed = totalDist / RUN_DURATION
-
+	local curX = startX
+	local curZ = startZ
 	local elapsed = 0
 	local t = math.random() * 100
 	local connection
+
+	local function cleanup()
+		for _, p in ipairs(game.Players:GetPlayers()) do
+			if p.Character then
+				local hum = p.Character:FindFirstChildOfClass("Humanoid")
+				if hum then hum.CameraOffset = Vector3.zero end
+			end
+		end
+	end
 
 	local shakeConnection
 	shakeConnection = RunService.Heartbeat:Connect(function(dt)
@@ -304,21 +349,19 @@ local function runGiantLizard()
 			shakeConnection:Disconnect()
 			return
 		end
-		for _, player in ipairs(game.Players:GetPlayers()) do
-			if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-				local dist = (player.Character.HumanoidRootPart.Position - model.PrimaryPart.Position).Magnitude
-				if dist < 50 then
-					local hum = player.Character:FindFirstChildOfClass("Humanoid")
-					if hum then
+		for _, p in ipairs(game.Players:GetPlayers()) do
+			if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+				local d = (p.Character.HumanoidRootPart.Position - model.PrimaryPart.Position).Magnitude
+				local hum = p.Character:FindFirstChildOfClass("Humanoid")
+				if hum then
+					if d < 50 then
+						local intensity = math.clamp(1 - d / 50, 0, 1)
 						hum.CameraOffset = Vector3.new(
-							(math.random() - 0.5) * 0.3 * math.clamp(1 - dist / 50, 0, 1),
-							(math.random() - 0.5) * 0.3 * math.clamp(1 - dist / 50, 0, 1),
+							(math.random() - 0.5) * 0.3 * intensity,
+							(math.random() - 0.5) * 0.3 * intensity,
 							0
 						)
-					end
-				else
-					local hum = player.Character:FindFirstChildOfClass("Humanoid")
-					if hum then
+					else
 						hum.CameraOffset = Vector3.zero
 					end
 				end
@@ -336,24 +379,21 @@ local function runGiantLizard()
 		t = t + dt
 
 		if elapsed >= RUN_DURATION then
-			for _, player in ipairs(game.Players:GetPlayers()) do
-				if player.Character then
-					local hum = player.Character:FindFirstChildOfClass("Humanoid")
-					if hum then hum.CameraOffset = Vector3.zero end
-				end
-			end
+			cleanup()
 			shakeConnection:Disconnect()
 			connection:Disconnect()
 			model:Destroy()
 			return
 		end
 
-		local dist = speed * elapsed
-		local x = startX + dir.X * dist
-		local z = startZ + dir.Z * dist
-		local y = snapToGroundY(x, z)
+		local curPos = Vector3.new(curX, snapToGroundY(curX, curZ), curZ)
+		dir = deflectFromWall(curPos, dir)
 
-		local facingCF = CFrame.new(Vector3.new(x, y, z), Vector3.new(x + dir.X, y, z + dir.Z))
+		curX = curX + dir.X * speed * dt
+		curZ = curZ + dir.Z * speed * dt
+		local y = snapToGroundY(curX, curZ)
+
+		local facingCF = CFrame.new(Vector3.new(curX, y, curZ), Vector3.new(curX + dir.X, y, curZ + dir.Z))
 		positionParts(model, facingCF, t, true)
 	end)
 end
@@ -361,9 +401,13 @@ end
 task.spawn(function()
 	task.wait(5)
 	while true do
-		runGiantLizard()
-		local waitTime = RESPAWN_MIN + math.random() * (RESPAWN_MAX - RESPAWN_MIN)
-		task.wait(waitTime)
+		local ok = runGiantLizard()
+		if ok == false then
+			task.wait(5)
+		else
+			local waitTime = RESPAWN_MIN + math.random() * (RESPAWN_MAX - RESPAWN_MIN)
+			task.wait(waitTime)
+		end
 	end
 end)
 
