@@ -16,6 +16,15 @@ local GROUND_OFFSET = 1.5 * SCALE
 local WALL_CHECK_DIST = 8 * SCALE
 local WALL_CHECK_HEIGHT = 2 * SCALE
 
+local JUMP_CHANCE = 0.004
+local JUMP_POWER = 40 * SCALE
+local JUMP_GRAVITY = 20 * SCALE
+
+local FIRE_CHANCE = 0.003
+local FIRE_DURATION = 1.2
+local FIRE_PARTICLE_COUNT = 12
+local FIRE_SPEED = 60
+
 local GIANT_COLOR = Color3.fromRGB(80, 45, 20)
 local GIANT_DARK = Color3.fromRGB(55, 30, 12)
 local BELLY_COLOR = Color3.fromRGB(170, 140, 90)
@@ -58,6 +67,48 @@ local function deflectFromWall(pos, moveDir)
 		return Vector3.new(-flatDir.Z, 0, flatDir.X).Unit
 	end
 	return moveDir
+end
+
+local function breatheFire(mouthCF)
+	local s = SCALE
+	for i = 1, FIRE_PARTICLE_COUNT do
+		local fireball = Instance.new("Part")
+		fireball.Name = "Fireball"
+		fireball.Shape = Enum.PartType.Ball
+		local size = (0.4 + math.random() * 0.6) * s
+		fireball.Size = Vector3.new(size, size, size)
+		fireball.Color = Color3.fromRGB(
+			255,
+			math.random(80, 200),
+			math.random(0, 40)
+		)
+		fireball.Material = Enum.Material.Neon
+		fireball.Anchored = false
+		fireball.CanCollide = false
+		fireball.CFrame = mouthCF * CFrame.new(
+			(math.random() - 0.5) * s * 0.5,
+			(math.random() - 0.5) * s * 0.3,
+			-s * 0.5
+		)
+		fireball.Parent = giantFolder
+
+		local spread = Vector3.new(
+			(math.random() - 0.5) * 15,
+			math.random() * 8,
+			(math.random() - 0.5) * 15
+		)
+		fireball.AssemblyLinearVelocity = mouthCF.LookVector * -FIRE_SPEED + spread
+
+		local light = Instance.new("PointLight")
+		light.Color = Color3.fromRGB(255, 150, 30)
+		light.Brightness = 2
+		light.Range = 8 * s
+		light.Parent = fireball
+
+		task.delay(FIRE_DURATION * (0.6 + math.random() * 0.8), function()
+			if fireball.Parent then fireball:Destroy() end
+		end)
+	end
 end
 
 local function buildGiantLizard()
@@ -210,7 +261,7 @@ local function buildGiantLizard()
 	return model
 end
 
-local function positionParts(model, bodyCF, t, isRunning)
+local function positionParts(model, bodyCF, t, isRunning, breathing)
 	local s = SCALE
 	local body = model.PrimaryPart
 	body.CFrame = bodyCF
@@ -235,7 +286,12 @@ local function positionParts(model, bodyCF, t, isRunning)
 
 	local jaw = model:FindFirstChild("Jaw")
 	if jaw then
-		local mouthOpen = math.max(0, math.sin(t * 4)) * 0.08 * s
+		local mouthOpen
+		if breathing then
+			mouthOpen = 0.4 * s
+		else
+			mouthOpen = math.max(0, math.sin(t * 4)) * 0.08 * s
+		end
 		jaw.CFrame = bodyCF * CFrame.new(0, -0.4 * s - mouthOpen, -3.0 * s)
 	end
 
@@ -332,6 +388,10 @@ local function runGiantLizard()
 	local curZ = startZ
 	local elapsed = 0
 	local t = math.random() * 100
+	local jumpVelocity = 0
+	local jumpOffset = 0
+	local isBreathingFire = false
+	local fireTimer = 0
 	local connection
 
 	local function cleanup()
@@ -393,8 +453,35 @@ local function runGiantLizard()
 		curZ = curZ + dir.Z * speed * dt
 		local y = snapToGroundY(curX, curZ)
 
-		local facingCF = CFrame.new(Vector3.new(curX, y, curZ), Vector3.new(curX + dir.X, y, curZ + dir.Z))
-		positionParts(model, facingCF, t, true)
+		if jumpVelocity == 0 and jumpOffset <= 0 and math.random() < JUMP_CHANCE then
+			jumpVelocity = JUMP_POWER
+		end
+
+		if jumpVelocity ~= 0 or jumpOffset > 0 then
+			jumpOffset = jumpOffset + jumpVelocity * dt
+			jumpVelocity = jumpVelocity - JUMP_GRAVITY * dt
+			if jumpOffset <= 0 then
+				jumpOffset = 0
+				jumpVelocity = 0
+			end
+		end
+
+		if isBreathingFire then
+			fireTimer = fireTimer - dt
+			if fireTimer <= 0 then
+				isBreathingFire = false
+			end
+		elseif math.random() < FIRE_CHANCE then
+			isBreathingFire = true
+			fireTimer = FIRE_DURATION
+			local head = model:FindFirstChild("Head")
+			if head then
+				breatheFire(head.CFrame)
+			end
+		end
+
+		local facingCF = CFrame.new(Vector3.new(curX, y + jumpOffset, curZ), Vector3.new(curX + dir.X, y + jumpOffset, curZ + dir.Z))
+		positionParts(model, facingCF, t, true, isBreathingFire)
 	end)
 end
 

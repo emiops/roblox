@@ -39,9 +39,7 @@ local function deflectFromWall(pos, moveDir)
 	local rayParams = RaycastParams.new()
 	local exclude = {butterfliesFolder}
 	local rocks = Workspace:FindFirstChild("Rocks")
-	local terrariums = Workspace:FindFirstChild("Terrariums")
 	if rocks then table.insert(exclude, rocks) end
-	if terrariums then table.insert(exclude, terrariums) end
 	rayParams.FilterDescendantsInstances = exclude
 	rayParams.FilterType = Enum.RaycastFilterType.Exclude
 	local result = Workspace:Raycast(origin, direction, rayParams)

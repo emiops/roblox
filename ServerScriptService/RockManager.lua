@@ -63,10 +63,7 @@ local function deflectFromWall(pos, moveDir)
 	local origin = pos + Vector3.new(0, WALL_CHECK_HEIGHT, 0)
 	local direction = flatDir * WALL_CHECK_DISTANCE
 	local rayParams = RaycastParams.new()
-	local exclude = {rocksFolder, rolliePolliesFolder}
-	local terrariums = terrariumsFolder or Workspace:FindFirstChild("Terrariums")
-	if terrariums then table.insert(exclude, terrariums) end
-	rayParams.FilterDescendantsInstances = exclude
+	rayParams.FilterDescendantsInstances = {rocksFolder, rolliePolliesFolder}
 	rayParams.FilterType = Enum.RaycastFilterType.Exclude
 	local result = Workspace:Raycast(origin, direction, rayParams)
 	if result then
