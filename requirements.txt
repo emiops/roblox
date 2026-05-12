@@ -1,0 +1,6 @@
+streamlit==1.32.0
+google-genai==1.2.0
+pandas==2.2.1
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.28
+langfuse==2.53.8

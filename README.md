@@ -1,169 +1,113 @@
-# EmiOps Lizard World - Roblox Game
+# DataSynth AI
 
-A Roblox world with nature (trees, rocks, caves, lakes, flowers, butterflies) and catchable lizards that escape and vary in size and appearance.
+This project uses Python, Streamlit, Docker, and PostgreSQL to generate synthetic data based on DDL schemas and allows you to chat with your database using natural language (NL2SQL). It is powered by the Gemini 2.5 Flash API via Google Cloud Vertex AI, with full local telemetry tracked via Langfuse.
 
-## Requirements
+## Prerequisites
 
-- **Roblox Studio** (free) — [roblox.com/create](https://create.roblox.com)
-- **Roblox account**
+* **Python 3.9+** installed on your Mac or PC.
 
----
+* **A running Docker Engine**. You can use:
 
-## Part 1: Build the World (Terrain & Nature)
+  * **OrbStack** *(Recommended for Mac)*: A fast, lightweight, and efficient drop-in replacement for Docker Desktop.
 
-### 1. Create New Place
+  * **Colima**: A free, open-source, CLI-based alternative for Mac (install via brew install colima and run colima start).
 
-1. Open **Roblox Studio**
-2. **New** → **Baseplate** or **Flat Terrain**
-3. Save as "EmiOps Lizard World"
+  * **Docker Desktop**: The standard option for Mac/Windows.
 
-### 2. Terrain (Hills, Lakes, Caves)
+* **Google Cloud CLI** installed (gcloud).
 
-1. Open **Home** tab → **Terrain**
-2. **Generate** → Create hills, valleys, water
-3. **Paint** → Add grass, sand, rock textures
-4. **Add Water** → Click to place lakes
-5. **Add Caves** → Use the **Grow** tool to carve caves, or add hollow parts
+## Step-by-Step Guide
 
-### 3. Trees
+### 1. Authenticate with Google Cloud (ADC)
 
-- **Model** tab → **Toolbox** → Search "tree"
-- Or: **View** → **Explorer** → Right‑click **Workspace** → **Insert from File** (if you have tree models)
-- Place trees around the map
+In your terminal, set up your Application Default Credentials and link it to your Google Cloud project (so Vertex AI knows where to route requests):
 
-### 4. Rocks
+    gcloud auth application-default login --project=your-project-id
 
-- Toolbox → Search "rock" or "boulder"
-- Place rocks near caves, lakes, and paths
+### 2. Start PostgreSQL and Langfuse
 
-### 5. Flowers
+Open your terminal in the project directory and run:
 
-- Toolbox → Search "flower"
-- Place flowers in open areas
+    docker-compose up -d
 
-### 6. Butterflies
+*Note:* This will download and start both the PostgreSQL database (port 5432) and the local Langfuse tracking server (port 3000) in the background.
 
-- Toolbox → Search "butterfly"
-- Or create: small Parts with **Decal**/color, add a **Script** that moves them in a pattern
-- Place near flowers
+### 3. Configure Local Langfuse (Observability)
 
----
+Since Langfuse is running locally on your machine, you need to generate API keys to track the LLM calls:
 
-## Part 2: Add the Lizard Scripts
+* Open http://localhost:3000 in your browser.
 
-### 1. Create a Lizards Folder
+* Sign up *(you can use any dummy email/password as it is completely local)* and create a new project (e.g., "DataSynth").
 
-1. In **Explorer**, right‑click **Workspace**
-2. **Insert Object** → **Folder**
-3. Name it **Lizards**
+* Navigate to **Settings > API Keys** in the left sidebar and click **Create new API Key**.
 
-### 2. Add LizardManager Script
+* Copy your **Public Key** (pk-lf-...) and **Secret Key** (sk-lf-...).
 
-1. Right‑click **ServerScriptService**
-2. **Insert Object** → **Script**
-3. Name it **LizardManager**
-4. Delete the default code
-5. Copy the contents of `ServerScriptService/LizardManager_Fixed.lua` into it
+* Open app.py and replace the public_key and secret_key in the Langfuse initialization block with your new keys:
 
-### 3. Add LizardInventory Module
+    langfuse = Langfuse(
+        secret_key="your-secret-key",
+        public_key="your-public-key",
+        host="http://localhost:3000"
+    )
 
-1. Right‑click **ReplicatedStorage**
-2. **Insert Object** → **ModuleScript**
-3. Name it **LizardInventory**
-4. Delete the default code
-5. Copy the contents of `ReplicatedStorage/LizardInventory.lua` into it
+### 4. Set up Python Environment
 
-### 4. Add CatchController Script
+Create a virtual environment and install the dependencies:
 
-1. Right‑click **ServerScriptService**
-2. **Insert Object** → **Script**
-3. Name it **CatchController**
-4. Delete the default code
-5. Copy the contents of `ServerScriptService/CatchController.lua` into it
+    # Create virtual environment
+    python3 -m venv venv
 
-### 5. Add Inventory GUI (Optional)
+    # Activate virtual environment
+    # On Mac/Linux:
+    source venv/bin/activate
+    # On Windows:
+    venv\Scripts\activate
 
-1. Right‑click **StarterGui**
-2. **Insert Object** → **LocalScript**
-3. Name it **InventoryGUI**
-4. Delete the default code
-5. Copy the contents of `StarterGui/InventoryGUI.lua` into it
+    # Install requirements
+    pip install -r requirements.txt
 
-### 6. Test
+### 5. Run the Streamlit Application
 
-1. Press **Play** (F5)
-2. Lizards should spawn and run away when you get close
-3. Walk into a lizard to catch it
-4. Press **I** to open your lizard inventory
-5. Check the **terrarium banner** for your lizard count (player name + lizards caught)
+Start the Streamlit UI by running:
 
----
+    streamlit run app.py
 
-## Part 3: Optional Improvements
+A new browser tab will open automatically at http://localhost:8501.
 
-### Custom Lizard Model
+## Features & Usage
 
-Replace the simple Part in `LizardManager_Fixed.lua` with your own lizard model:
+### Phase 1: Data Generation
 
-1. Create or download a lizard model in Roblox Studio
-2. Put it in **ReplicatedStorage** as "LizardTemplate"
-3. Update the script to clone that instead of creating a Part
+* Ensure the "Database Status" in the sidebar shows **PostgreSQL Connected**.
 
-### Butterfly Script (Simple)
+* Upload a SQL/DDL file in the **Data Generation** tab.
 
-```lua
--- Place in a Butterfly model in Workspace
-local part = script.Parent.PrimaryPart or script.Parent:FindFirstChildWhichIsA("BasePart")
-local startPos = part.Position
-while true do
-    for i = 1, 50 do
-        part.CFrame = startPos * CFrame.new(math.sin(i/10)*2, math.sin(i/5)*1, 0)
-        task.wait(0.05)
-    end
-end
-```
+* Tweak your prompt and adjust "Advanced Parameters" *(Increase **Rows per Table** to generate more data, up to the API token limit)*.
 
-### Spawn Settings
+* Click **Generate** to create synthetic data.
 
-In `LizardManager_Fixed.lua` you can change:
+* Preview the tables, edit them iteratively via the quick edit box.
 
-- `ESCAPE_DISTANCE` — how close the player must be for lizards to run (default: 14)
-- `ESCAPE_SPEED` — how fast they run (default: 16)
-- `SPAWN_INTERVAL` — seconds between spawns (default: 6)
-- `MAX_LIZARDS` — max lizards at once (default: 20)
-- `SPAWN_RADIUS` — area where lizards spawn (default: 60)
+* Click **Export to Local PostgreSQL**. *(This automatically translates schemas and drops existing tables to prevent conflicts)*.
 
----
+### Phase 2: Talk to your Data
 
-## File Structure
+* Navigate to the **Talk to your data** section via the sidebar.
 
-```
-EmiOps-Roblox/
-├── ServerScriptService/
-│   ├── LizardManager_Fixed.lua (spawn + behavior)
-│   └── CatchController.lua     (catching + inventory)
-├── ReplicatedStorage/
-│   └── LizardInventory.lua     (ModuleScript - inventory logic)
-├── StarterGui/
-│   └── InventoryGUI.lua        (LocalScript - press I to view)
-└── README.md
-```
+* Ask natural language questions about the synthetic data you just exported (e.g., "Show me the top 5 cuisines by average rating").
 
----
+* The app will automatically write the SQL, execute it locally, and return text summaries alongside dynamic data tables and charts!
 
-## Quick Start Checklist
+### Observability with Langfuse
 
-- [ ] Create new Baseplate in Roblox Studio
-- [ ] Add terrain (hills, water, caves)
-- [ ] Add trees, rocks, flowers from Toolbox
-- [ ] Add butterflies (Toolbox or custom)
-- [ ] Create **Lizards** folder in Workspace
-- [ ] Add **LizardInventory** ModuleScript to ReplicatedStorage
-- [ ] Add **LizardManager_Fixed** script to ServerScriptService
-- [ ] Add **CatchController** script to ServerScriptService
-- [ ] Add **InventoryGUI** LocalScript to StarterGui (optional)
-- [ ] Press Play and test — press **I** to view inventory
+All interactions with the Gemini LLM are automatically logged to your local Langfuse instance.
 
----
+* **View Traces:** Go to http://localhost:3000 and click on **Traces** to see every prompt, response, latency, and the exact token usage.
 
-© EmiOps — Have fun catching lizards!
+* **Trace Details:** Traces are categorized automatically (e.g., "Synthetic Data Generation", "Modify Table Data", "NL2SQL Translation") for easy debugging and cost/latency analysis.
+
+### Database Maintenance
+
+* If you want to start over, click the **Clean Database** button in the sidebar to safely drop all tables and clear your chat history.
